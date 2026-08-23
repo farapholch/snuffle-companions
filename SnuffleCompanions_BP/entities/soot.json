@@ -1,0 +1,490 @@
+{
+  "format_version": "1.20.50",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "gris:soot",
+      "is_spawnable": true,
+      "is_summonable": true,
+      "is_experimental": false,
+      "properties": {
+        "gris:tam": {
+          "type": "int",
+          "range": [
+            0,
+            1
+          ],
+          "default": 0,
+          "client_sync": true
+        },
+        "gris:lage": {
+          "type": "int",
+          "range": [
+            0,
+            2
+          ],
+          "default": 0,
+          "client_sync": true
+        },
+        "gris:sadlad": {
+          "type": "int",
+          "range": [
+            0,
+            1
+          ],
+          "default": 0,
+          "client_sync": true
+        },
+        "gris:vaskor": {
+          "type": "int",
+          "range": [
+            0,
+            1
+          ],
+          "default": 0,
+          "client_sync": true
+        },
+        "gris:bar": {
+          "type": "int",
+          "range": [
+            0,
+            1
+          ],
+          "default": 0,
+          "client_sync": true
+        }
+      }
+    },
+    "components": {
+      "minecraft:type_family": {
+        "family": [
+          "sc_gris",
+          "mob"
+        ]
+      },
+      "minecraft:health": {
+        "value": 18,
+        "max": 18
+      },
+      "minecraft:collision_box": {
+        "width": 0.9,
+        "height": 0.9
+      },
+      "minecraft:physics": {},
+      "minecraft:pushable": {
+        "is_pushable": true
+      },
+      "minecraft:movement": {
+        "value": 0.25
+      },
+      "minecraft:movement.basic": {},
+      "minecraft:jump.static": {},
+      "minecraft:navigation.walk": {
+        "can_path_over_water": true,
+        "avoid_water": true
+      },
+      "minecraft:nameable": {},
+      "minecraft:behavior.float": {
+        "priority": 0
+      },
+      "minecraft:behavior.panic": {
+        "priority": 2,
+        "speed_multiplier": 1.4
+      },
+      "minecraft:behavior.look_at_player": {
+        "priority": 10,
+        "look_distance": 8
+      },
+      "minecraft:behavior.random_look_around": {
+        "priority": 11
+      },
+      "minecraft:behavior.random_stroll": {
+        "priority": 12,
+        "speed_multiplier": 0.8
+      },
+      "minecraft:ambient_sound_interval": {
+        "value": 20.0,
+        "range": 30.0,
+        "event_name": "ambient"
+      },
+      "minecraft:tameable": {
+        "probability": 0.4,
+        "tame_items": [
+          "carrot"
+        ],
+        "tame_event": {
+          "event": "gris:on_tame",
+          "target": "self"
+        }
+      }
+    },
+    "component_groups": {
+      "gris:tamed": {
+        "minecraft:is_tamed": {},
+        "minecraft:persistent": {},
+        "minecraft:healable": {
+          "force_use": true,
+          "items": [
+            {
+              "item": "carrot",
+              "heal_amount": 3
+            },
+            {
+              "item": "potato",
+              "heal_amount": 2
+            },
+            {
+              "item": "beetroot",
+              "heal_amount": 2
+            },
+            {
+              "item": "gris:tryffel",
+              "heal_amount": 6
+            }
+          ]
+        },
+        "minecraft:interact": {
+          "interactions": [
+            {
+              "on_interact": {
+                "filters": {
+                  "all_of": [
+                    {
+                      "test": "is_family",
+                      "subject": "other",
+                      "value": "player"
+                    },
+                    {
+                      "test": "is_owner",
+                      "subject": "other"
+                    },
+                    {
+                      "test": "has_equipment",
+                      "domain": "hand",
+                      "subject": "other",
+                      "value": "saddle"
+                    },
+                    {
+                      "test": "int_property",
+                      "domain": "gris:sadlad",
+                      "value": 0
+                    }
+                  ]
+                },
+                "event": "gris:sadla",
+                "target": "self"
+              },
+              "use_item": true,
+              "play_sounds": "saddle",
+              "interact_text": "action.interact.saddle"
+            },
+            {
+              "on_interact": {
+                "filters": {
+                  "all_of": [
+                    {
+                      "test": "is_family",
+                      "subject": "other",
+                      "value": "player"
+                    },
+                    {
+                      "test": "is_owner",
+                      "subject": "other"
+                    },
+                    {
+                      "test": "has_equipment",
+                      "domain": "hand",
+                      "subject": "other",
+                      "value": "chest"
+                    },
+                    {
+                      "test": "int_property",
+                      "domain": "gris:vaskor",
+                      "value": 0
+                    }
+                  ]
+                },
+                "event": "gris:vaskor_pa",
+                "target": "self"
+              },
+              "use_item": true,
+              "play_sounds": "armor.equip_leather",
+              "interact_text": "action.interact.saddlebags"
+            },
+            {
+              "on_interact": {
+                "filters": {
+                  "all_of": [
+                    {
+                      "test": "is_family",
+                      "subject": "other",
+                      "value": "player"
+                    },
+                    {
+                      "test": "is_owner",
+                      "subject": "other"
+                    },
+                    {
+                      "test": "has_equipment",
+                      "domain": "hand",
+                      "subject": "other",
+                      "value": "stick"
+                    }
+                  ]
+                },
+                "event": "gris:nasta_lage",
+                "target": "self"
+              },
+              "play_sounds": "beacon.power",
+              "interact_text": "action.interact.command"
+            }
+          ]
+        }
+      },
+      "gris:foljer": {
+        "minecraft:behavior.follow_owner": {
+          "priority": 6,
+          "speed_multiplier": 1.15,
+          "start_distance": 8,
+          "stop_distance": 2
+        }
+      },
+      "gris:bokar": {
+        "minecraft:behavior.follow_owner": {
+          "priority": 7,
+          "speed_multiplier": 1.0,
+          "start_distance": 16,
+          "stop_distance": 8
+        }
+      },
+      "gris:stannar": {},
+      "gris:sadlad": {
+        "minecraft:rideable": {
+          "seat_count": 1,
+          "family_types": [
+            "player"
+          ],
+          "interact_text": "action.interact.ride",
+          "seats": {
+            "position": [
+              0,
+              0.9,
+              -0.2
+            ]
+          }
+        },
+        "minecraft:behavior.controlled_by_player": {},
+        "minecraft:input_ground_controlled": {}
+      },
+      "gris:vaskor": {
+        "minecraft:inventory": {
+          "container_type": "horse",
+          "inventory_size": 15,
+          "can_be_siphoned_from": false
+        }
+      },
+      "gris:vuxen": {
+        "minecraft:scale": {
+          "value": 1.0
+        }
+      },
+      "gris:kulting": {
+        "minecraft:scale": {
+          "value": 0.5
+        },
+        "minecraft:is_baby": {},
+        "minecraft:ageable": {
+          "duration": 1200,
+          "grow_up": {
+            "event": "gris:vuxen_nu",
+            "target": "self"
+          },
+          "feed_items": [
+            "gris:tryffel",
+            "potato",
+            "beetroot",
+            "carrot"
+          ]
+        }
+      },
+      "gris:parar": {
+        "minecraft:breedable": {
+          "require_tame": true,
+          "require_full_health": true,
+          "breeds_with": [
+            {
+              "mate_type": "gris:soot",
+              "baby_type": "gris:soot",
+              "breed_event": {
+                "event": "gris:fodd",
+                "target": "baby"
+              }
+            }
+          ],
+          "love_filters": {
+            "test": "has_component",
+            "subject": "self",
+            "operator": "!=",
+            "value": "minecraft:is_baby"
+          },
+          "breed_items": [
+            "gris:tryffel",
+            "potato",
+            "beetroot"
+          ]
+        },
+        "minecraft:behavior.breed": {
+          "priority": 4,
+          "speed_multiplier": 1.0
+        }
+      }
+    },
+    "events": {
+      "gris:on_tame": {
+        "add": {
+          "component_groups": [
+            "gris:tamed",
+            "gris:foljer",
+            "gris:parar"
+          ]
+        },
+        "set_property": {
+          "gris:tam": 1
+        }
+      },
+      "gris:nasta_lage": {
+        "sequence": [
+          {
+            "filters": {
+              "test": "int_property",
+              "domain": "gris:lage",
+              "value": 2
+            },
+            "set_property": {
+              "gris:lage": 0
+            },
+            "add": {
+              "component_groups": [
+                "gris:foljer"
+              ]
+            },
+            "remove": {
+              "component_groups": [
+                "gris:bokar",
+                "gris:stannar"
+              ]
+            }
+          },
+          {
+            "filters": {
+              "test": "int_property",
+              "domain": "gris:lage",
+              "value": 1
+            },
+            "set_property": {
+              "gris:lage": 2
+            },
+            "add": {
+              "component_groups": [
+                "gris:stannar"
+              ]
+            },
+            "remove": {
+              "component_groups": [
+                "gris:foljer",
+                "gris:bokar"
+              ]
+            }
+          },
+          {
+            "filters": {
+              "test": "int_property",
+              "domain": "gris:lage",
+              "value": 0
+            },
+            "set_property": {
+              "gris:lage": 1
+            },
+            "add": {
+              "component_groups": [
+                "gris:bokar"
+              ]
+            },
+            "remove": {
+              "component_groups": [
+                "gris:foljer",
+                "gris:stannar"
+              ]
+            }
+          }
+        ]
+      },
+      "gris:sadla": {
+        "add": {
+          "component_groups": [
+            "gris:sadlad"
+          ]
+        },
+        "set_property": {
+          "gris:sadlad": 1
+        }
+      },
+      "gris:vaskor_pa": {
+        "add": {
+          "component_groups": [
+            "gris:vaskor"
+          ]
+        },
+        "set_property": {
+          "gris:vaskor": 1
+        }
+      },
+      "gris:bar_pa": {
+        "set_property": {
+          "gris:bar": 1
+        }
+      },
+      "gris:bar_av": {
+        "set_property": {
+          "gris:bar": 0
+        }
+      },
+      "minecraft:entity_spawned": {
+        "add": {
+          "component_groups": [
+            "gris:vuxen"
+          ]
+        }
+      },
+      "gris:fodd": {
+        "add": {
+          "component_groups": [
+            "gris:kulting",
+            "gris:tamed",
+            "gris:foljer"
+          ]
+        },
+        "remove": {
+          "component_groups": [
+            "gris:vuxen"
+          ]
+        },
+        "set_property": {
+          "gris:tam": 1
+        }
+      },
+      "gris:vuxen_nu": {
+        "add": {
+          "component_groups": [
+            "gris:vuxen",
+            "gris:parar"
+          ]
+        },
+        "remove": {
+          "component_groups": [
+            "gris:kulting"
+          ]
+        }
+      }
+    }
+  }
+}

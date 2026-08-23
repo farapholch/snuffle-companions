@@ -1,0 +1,36 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "gris:soot",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "default": "textures/entity/soot"
+      },
+      "geometry": {
+        "default": "geometry.gris_normal"
+      },
+      "animations": {
+        "walk": "animation.quadruped.walk",
+        "look_at_target": "animation.common.look_at_target"
+      },
+      "scripts": {
+        "animate": [
+          {
+            "walk": "query.modified_move_speed"
+          },
+          "look_at_target"
+        ]
+      },
+      "render_controllers": [
+        "controller.render.gris"
+      ],
+      "spawn_egg": {
+        "texture": "sc_soot",
+        "texture_index": 0
+      }
+    }
+  }
+}

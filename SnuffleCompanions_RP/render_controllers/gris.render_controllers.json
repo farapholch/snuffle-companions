@@ -1,0 +1,30 @@
+{
+  "format_version": "1.10.0",
+  "render_controllers": {
+    "controller.render.gris": {
+      "geometry": "Geometry.default",
+      "materials": [
+        {
+          "*": "Material.default"
+        }
+      ],
+      "textures": [
+        "Texture.default"
+      ],
+      "part_visibility": [
+        {
+          "*": true
+        },
+        {
+          "sadel": "q.property('gris:sadlad') == 1"
+        },
+        {
+          "vaskor": "q.property('gris:vaskor') == 1"
+        },
+        {
+          "tryffel": "q.property('gris:bar') == 1"
+        }
+      ]
+    }
+  }
+}

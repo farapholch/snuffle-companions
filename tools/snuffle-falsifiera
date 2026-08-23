@@ -1,0 +1,142 @@
+#!/usr/bin/env python3
+"""Provar att testets STATISKA spärrar faktiskt faller.
+
+En spärr som aldrig sett ett fel är inte bevisad — den kan lika gärna vara en
+rad som alltid säger ja. Det här verktyget bryter EN sak i taget i en kopia av
+paketet och kontrollerar att rätt spärr klagar på rätt sak.
+
+Två gånger har det här provet hittat fel i SIG SJÄLVT i stället för i spärrarna,
+och båda är värda att minnas:
+
+  * `open(f, "w")` trunkerar filen INNAN argumentet `open(f).read()` hinner köra.
+    Provet tömde generatorn och rapporterade "BOKBAR hittades inte", vilket såg
+    ut som ett hål i spärren.
+  * "mountain" ÄR en giltig biomtagg i motorn (den har 66 stycken). Ett prov som
+    använder en giltig tagg provar ingenting. Använd "mountains".
+
+    python3 tools/snuffle-falsifiera
+"""
+import json, os, re, shutil, subprocess, sys, tempfile
+
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KOPIA = "/tmp/snuffle-falsifiering"
+BP = f"{KOPIA}/SnuffleCompanions_BP"
+RP = f"{KOPIA}/SnuffleCompanions_RP"
+
+
+def strukturgrinden():
+    """Plockar ut strukturstegets python ur snuffle-test.
+
+    KODEN LÄSES UR TESTET, den kopieras inte hit. En kopia skulle glida isär
+    från originalet, och då provar det här verktyget en spärr som inte längre är
+    den som körs skarpt — vilket är sämre än att inte prova alls."""
+    rader = open(f"{BASE}/tools/snuffle-test", encoding="utf-8").read().splitlines()
+    start = next(i for i, r in enumerate(rader) if r.startswith('STRUKT=$(python3 - "$SRC"'))
+    slut = next(i for i in range(start + 1, len(rader)) if rader[i] == "PY")
+    fil = tempfile.NamedTemporaryFile("w", suffix=".py", delete=False, encoding="utf-8")
+    fil.write("\n".join(rader[start + 1:slut]))
+    fil.close()
+    return fil.name
+
+
+def farsk():
+    shutil.rmtree(KOPIA, ignore_errors=True)
+    shutil.copytree(BASE, KOPIA)
+
+
+def kor(grind):
+    ut = subprocess.run([sys.executable, grind, KOPIA],
+                        capture_output=True, text=True).stdout
+    # UUID-KROCKEN MOT ORIGINALET ÄR VÄNTAD. Kopian delar per definition uuid med
+    # paketet den kopierades från; det är spärren som fungerar, men det är inte
+    # det som provas här.
+    return [r for r in ut.splitlines() if r and not r.startswith("uuid ")]
+
+
+def byt(sokvag, fran, till):
+    d = open(sokvag, encoding="utf-8").read()
+    open(sokvag, "w", encoding="utf-8").write(d.replace(fran, till))
+
+
+def jsonfix(sokvag, f):
+    d = json.load(open(sokvag)); f(d); json.dump(d, open(sokvag, "w"), indent=2)
+
+
+PROV = [
+    ("ridning utan styrning",
+     lambda: jsonfix(f"{BP}/entities/soot.json", lambda d: d["minecraft:entity"]
+                     ["component_groups"]["gris:sadlad"].pop(
+                         "minecraft:behavior.controlled_by_player")),
+     "controlled_by_player"),
+    ("egenskap utan client_sync",
+     lambda: jsonfix(f"{BP}/entities/soot.json", lambda d: d["minecraft:entity"]
+                     ["description"]["properties"]["gris:sadlad"].update(client_sync=False)),
+     "client_sync"),
+    ("part_visibility mot okänt ben",
+     lambda: jsonfix(f"{RP}/render_controllers/gris.render_controllers.json",
+                     lambda d: d["render_controllers"]["controller.render.gris"]
+                     ["part_visibility"].append({"sadelgrimma": "q.property('gris:bar') == 1"})),
+     "part_visibility pekar på benet"),
+    ("saknad språknyckel",
+     lambda: byt(f"{RP}/texts/sv_SE.lang", "gris.vittring=", "gris.vittringXX="),
+     "saknar nyckeln 'gris.vittring'"),
+    ("set_property utanför intervallet",
+     lambda: jsonfix(f"{BP}/entities/soot.json", lambda d: d["minecraft:entity"]
+                     ["events"]["gris:sadla"]["set_property"].update({"gris:sadlad": 7})),
+     "utanför"),
+    ("generatorn ändrad utan omkörning",
+     lambda: byt(f"{KOPIA}/tools/make_pigs.py",
+                 '"minecraft:mud"]', '"minecraft:mud", "minecraft:sand"]'),
+     "BOKBAR skiljer"),
+    ("biomtagg som inte finns",
+     lambda: jsonfix(f"{BP}/spawn_rules/ember.json", lambda d: d["minecraft:spawn_rules"]
+                     ["conditions"][0]["minecraft:biome_filter"].update(value="mountains")),
+     "biomtaggen 'mountains'"),
+    ("okänt vanilla-föremål i foder",
+     lambda: jsonfix(f"{BP}/entities/nilla.json", lambda d: d["minecraft:entity"]
+                     ["components"]["minecraft:tameable"]["tame_items"].append("carrott")),
+     "okänt id 'minecraft:carrott'"),
+    ("geometrin och PNG:en i olika skala",
+     lambda: jsonfix(f"{RP}/models/entity/gris.geo.json",
+                     lambda d: d["minecraft:geometry"][0]["description"].update(
+                         texture_width=64, texture_height=64)),
+     "texturstorlek"),
+    ("två beteenden med samma prioritet",
+     lambda: jsonfix(f"{BP}/entities/soot.json", lambda d: d["minecraft:entity"]
+                     ["component_groups"]["gris:bokar"]
+                     ["minecraft:behavior.follow_owner"].update(priority=2)),
+     "prioritet 2 delas av"),
+]
+
+
+def main():
+    grind = strukturgrinden()
+    # FÖRST: en OBRUTEN kopia måste vara tyst. Klagar grinden redan där betyder
+    # varje grön rad nedan ingenting — då provar vi brus, inte spärrar.
+    farsk()
+    rester = kor(grind)
+    if rester:
+        print("  ❌ en obruten kopia ger redan klagomål:")
+        for r in rester[:5]:
+            print("     " + r)
+        return 1
+    print("  ✅ obruten kopia är tyst")
+
+    fel = 0
+    for namn, bryt, vantat in PROV:
+        farsk(); bryt()
+        rader = kor(grind)
+        if any(vantat in r for r in rader):
+            print(f"  ✅ {namn}")
+        else:
+            print(f"  ❌ {namn} — spärren föll INTE (fick: {rader[:2]})")
+            fel = 1
+    shutil.rmtree(KOPIA, ignore_errors=True)
+    os.unlink(grind)
+    print()
+    print("ALLA SPÄRRAR FALLER" if not fel else "NÅGON SPÄRR FÅNGAR INTE SITT FEL")
+    return fel
+
+
+if __name__ == "__main__":
+    sys.exit(main())

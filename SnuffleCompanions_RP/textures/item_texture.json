@@ -1,0 +1,24 @@
+{
+  "resource_pack_name": "snuffle",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "sc_nilla": {
+      "textures": "textures/items/sc_nilla"
+    },
+    "sc_bramble": {
+      "textures": "textures/items/sc_bramble"
+    },
+    "sc_blossom": {
+      "textures": "textures/items/sc_blossom"
+    },
+    "sc_soot": {
+      "textures": "textures/items/sc_soot"
+    },
+    "sc_ember": {
+      "textures": "textures/items/sc_ember"
+    },
+    "sc_tryffel": {
+      "textures": "textures/items/sc_tryffel"
+    }
+  }
+}

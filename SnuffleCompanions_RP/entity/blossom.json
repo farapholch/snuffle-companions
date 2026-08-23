@@ -1,0 +1,36 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "gris:blossom",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "default": "textures/entity/blossom"
+      },
+      "geometry": {
+        "default": "geometry.gris_stor"
+      },
+      "animations": {
+        "walk": "animation.quadruped.walk",
+        "look_at_target": "animation.common.look_at_target"
+      },
+      "scripts": {
+        "animate": [
+          {
+            "walk": "query.modified_move_speed"
+          },
+          "look_at_target"
+        ]
+      },
+      "render_controllers": [
+        "controller.render.gris"
+      ],
+      "spawn_egg": {
+        "texture": "sc_blossom",
+        "texture_index": 0
+      }
+    }
+  }
+}

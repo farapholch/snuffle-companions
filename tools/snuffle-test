@@ -1,0 +1,451 @@
+#!/bin/bash
+# Testkedjan för Snuffle Companions. Samma upplägg som loyal-test: statiska
+# spärrar som fångar det filgranskning kan fånga, och en SKARP serverkörning för
+# allt annat — ett paket som bara är JSON-validerat är inte testat.
+#
+# EN Bedrock-server åt gången — samma lås som katt- och hundpaketet, annars
+# krockar de på portarna när två testas samtidigt.
+set -u
+if [ "${BDS_LOCK_HELD:-}" != "1" ]; then
+  exec 9>/tmp/bds.lock; flock -w 1200 9 || { echo "kunde inte ta serverlåset"; exit 1; }
+  export BDS_LOCK_HELD=1
+fi
+SRC=/opt/snuffle-companions
+SRV=/opt/bds/server
+WORLD="$SRV/worlds/Gristest"
+LOG=/tmp/snuffle-test.log
+# RASERNA LÄSES UR PAKETET, inte ur en lista här. En ras som läggs till och inte
+# testas gör att raden fortfarande säger "5/5" och ser grön ut — hundpaketet gick
+# i den fällan, och det är alltid samma orsak: två ställen som ska hållas i synk,
+# varav bara ett underhålls.
+RASER=$(ls "$SRC/SnuffleCompanions_BP/entities/"*.json | xargs -n1 basename | sed 's/\.json$//' | tr '\n' ' ')
+ANTAL=$(echo $RASER | wc -w)
+FAIL=0
+ok(){ echo "  ✅ $1"; }
+bad(){ echo "  ❌ $1"; FAIL=1; }
+
+echo "=== Snuffle Companions-test $(date '+%F %H:%M') ==="
+echo
+echo "[1/3] JSON och bilder"
+n=0
+while read -r f; do
+  n=$((n+1))
+  python3 -c "import json;json.load(open('$f'))" 2>/dev/null || bad "ogiltig JSON: ${f#$SRC/}"
+done < <(find "$SRC" -name "*.json" -not -path "*/node_modules/*")
+[ $FAIL -eq 0 ] && ok "$n JSON-filer giltiga"
+python3 /opt/purrfect-companions/tools/pngkoll.py "$SRC/SnuffleCompanions_RP" | sed 's/^/  /' || bad "trasiga PNG-filer"
+node --check "$SRC/SnuffleCompanions_BP/scripts/main.js" 2>&1 | sed 's/^/  /' || bad "main.js går inte att parsa"
+
+echo
+echo "[2/3] Struktur"
+STRUKT=$(python3 - "$SRC" <<'PY'
+import json, glob, os, re, struct, sys
+SRC = sys.argv[1]; bad = []
+NS = "gris"
+BP, RP = f"{SRC}/SnuffleCompanions_BP", f"{SRC}/SnuffleCompanions_RP"
+bp = json.load(open(f"{BP}/manifest.json"))
+rp = json.load(open(f"{RP}/manifest.json"))
+if bp["header"]["version"] != rp["header"]["version"]: bad.append("BP- och RP-version skiljer")
+# MOTORKRAVET måste räcka till de format_version vi faktiskt använder, annars
+# ber paketet om en motor som inte kan läsa dess egna filer.
+mev = tuple(bp["header"].get("min_engine_version", [0, 0, 0]))
+for f in glob.glob(f"{BP}/**/*.json", recursive=True):
+    d = json.load(open(f))
+    fv = d.get("format_version") if isinstance(d, dict) else None
+    if not isinstance(fv, str):
+        continue
+    delar = tuple(int(x) for x in fv.split(".")[:3]) + (0,) * (3 - len(fv.split(".")[:3]))
+    if delar > mev:
+        bad.append(f"{os.path.basename(f)}: format_version {fv} > min_engine_version "
+                   f"{'.'.join(map(str, mev))}")
+if not [d for d in bp.get("dependencies", []) if d.get("uuid") == rp["header"]["uuid"]]:
+    bad.append("BP saknar beroende till RP")
+# UUID:N FÅR INTE VARA LÅNADE. Ett paket som delar uuid med hundpaketet skriver
+# över det i spelarens paketlista — och felet syns först på någon annans maskin.
+egna = {bp["header"]["uuid"], rp["header"]["uuid"]} | \
+       {m["uuid"] for m in bp["modules"] + rp["modules"]}
+for grann in glob.glob("/opt/*-companions/*_BP/manifest.json") + \
+             glob.glob("/opt/*-companions/*_RP/manifest.json"):
+    if grann.startswith(SRC):
+        continue
+    g = json.load(open(grann))
+    andras = {g["header"]["uuid"]} | {m["uuid"] for m in g["modules"]}
+    for u in egna & andras:
+        bad.append(f"uuid {u} delas med {os.path.relpath(grann, '/opt')}")
+# GEOMETRINS TEXTURSTORLEK måste stämma med PNG:en — annars läses UV i fel skala
+# och modellen blir obegriplig i spelet, utan att servern märker något.
+geos = json.load(open(f"{RP}/models/entity/gris.geo.json"))["minecraft:geometry"]
+GEOBEN = set()
+for g in geos:
+    GEOBEN |= {b["name"] for b in g["bones"]}
+PER_GEO = {g["description"]["identifier"]: g for g in geos}
+KRAV = {"animation.common.look_at_target": ["head"],
+        "animation.quadruped.walk": ["leg0", "leg1", "leg2", "leg3"]}
+itex = json.load(open(f"{RP}/textures/item_texture.json"))["texture_data"]
+for f in sorted(glob.glob(f"{RP}/entity/*.json")):
+    d = json.load(open(f))["minecraft:client_entity"]["description"]
+    namn = os.path.basename(f)
+    tex = f"{RP}/{d['textures']['default']}.png"
+    if not os.path.exists(tex): bad.append(f"{namn}: textur saknas"); continue
+    tw, th = struct.unpack(">II", open(tex, "rb").read()[16:24])
+    geoid = d["geometry"]["default"]
+    if geoid not in PER_GEO:
+        bad.append(f"{namn}: geometrin {geoid} finns inte"); continue
+    dsc = PER_GEO[geoid]["description"]
+    if (dsc.get("texture_width"), dsc.get("texture_height")) != (tw, th):
+        bad.append(f"{namn}: geometrins texturstorlek != PNG {tw}x{th}")
+    egna_ben = {b["name"] for b in PER_GEO[geoid]["bones"]}
+    for anim in d.get("animations", {}).values():
+        for krav in KRAV.get(anim, []):
+            if krav not in egna_ben: bad.append(f"{namn}: {anim} kräver benet '{krav}'")
+    agg = d.get("spawn_egg", {}).get("texture")
+    if agg and agg not in itex: bad.append(f"{namn}: spawnägg '{agg}' saknas i item_texture.json")
+    ident = d["identifier"]
+    if not os.path.exists(f"{BP}/entities/{ident.split(':')[1]}.json"):
+        bad.append(f"{namn}: ingen beteendeentitet")
+# ITEM_TEXTURE MÅSTE PEKA PÅ FILER SOM FINNS. En saknad PNG ger ett rosa-svart
+# rutmönster i handen, inte ett felmeddelande.
+for nyckel, v in itex.items():
+    if not os.path.exists(f"{RP}/{v['textures']}.png"):
+        bad.append(f"item_texture.json: '{nyckel}' pekar på {v['textures']}.png som saknas")
+# RENDERARKONTROLLERN: pekar part_visibility på ett bennamn som inte finns i
+# geometrin tystnar raden — sadeln skulle helt enkelt aldrig synas, utan ett ord
+# i någon logg.
+KTRL = {}
+for f in glob.glob(f"{RP}/render_controllers/*.json"):
+    KTRL.update(json.load(open(f))["render_controllers"])
+for namn, k in KTRL.items():
+    for regel in k.get("part_visibility", []):
+        for ben in regel:
+            if ben != "*" and ben not in GEOBEN:
+                bad.append(f"{namn}: part_visibility pekar på benet '{ben}' som geometrin saknar")
+        # EGENSKAPEN MÅSTE FINNAS OCH VARA CLIENT_SYNC. part_visibility körs på
+        # KLIENTEN; en egenskap som servern inte synkar läses alltid som sitt
+        # standardvärde, och sadeln syns aldrig hur rätt servern än sätter den.
+        for uttryck in regel.values():
+            if not isinstance(uttryck, str): continue
+            for p in re.findall(r"q\.property\('([^']+)'\)", uttryck):
+                for ef in glob.glob(f"{BP}/entities/*.json"):
+                    props = json.load(open(ef))["minecraft:entity"]["description"].get(
+                        "properties", {})
+                    if p not in props:
+                        bad.append(f"{os.path.basename(ef)}: saknar egenskapen '{p}' "
+                                   f"som {namn} läser")
+                    elif not props[p].get("client_sync"):
+                        bad.append(f"{os.path.basename(ef)}: '{p}' är inte client_sync "
+                                   f"men läses av {namn}")
+for f in sorted(glob.glob(f"{RP}/entity/*.json")):
+    d = json.load(open(f))["minecraft:client_entity"]["description"]
+    for rc in d.get("render_controllers", []):
+        if rc not in KTRL and not rc.startswith("controller.render.default"):
+            bad.append(f"{os.path.basename(f)}: renderarkontrollern {rc} finns inte")
+# BOKBAR OCH MALM STÅR PÅ TVÅ STÄLLEN — generatorn äger dem, skriptet läser en
+# genererad kopia. Körs generatorn inte om efter en ändring bökar grisen i
+# blocktyper som listan inte längre nämner, eller tvärtom.
+gen = open(f"{SRC}/tools/make_pigs.py").read()
+raser_js = open(f"{BP}/scripts/raser.js").read()
+for namn in ("BOKBAR", "MALM"):
+    m = re.search(rf"^{namn} = \[(.*?)\]", gen, re.S | re.M)
+    if not m: bad.append(f"{namn} hittades inte i make_pigs.py"); continue
+    g1 = set(re.findall(r'"(minecraft:[a-z0-9_]+)"', m.group(1)))
+    m2 = re.search(rf"export const {namn} = \[(.*?)\];", raser_js, re.S)
+    g2 = set(re.findall(r'"(minecraft:[a-z0-9_]+)"', m2.group(1))) if m2 else set()
+    if g1 != g2:
+        bad.append(f"{namn} skiljer: generatorn {len(g1)} poster, raser.js {len(g2)} "
+                   f"— kör tools/make_pigs.py")
+# NOSTABELLEN måste täcka varje ras, annars faller en ras tyst tillbaka på
+# standardräckvidden och rasernas skillnad i näsa försvinner utan att synas.
+m = re.search(r"export const RASER = (\{.*?\});", raser_js, re.S)
+tab = json.loads(m.group(1)) if m else {}
+for f in glob.glob(f"{BP}/entities/*.json"):
+    ident = json.load(open(f))["minecraft:entity"]["description"]["identifier"]
+    if ident not in tab:
+        bad.append(f"raser.js saknar nosräckvidd för {ident} — kör tools/make_pigs.py")
+# TVÅ MÅL MED SAMMA PRIORITET är odefinierat i Bedrock — det ena kan tyst falla
+# bort. Krocken syns bara i KOMBINATIONEN av grupper som är aktiva samtidigt.
+KOMBOR = [(f"{NS}:tamed", f"{NS}:foljer"), (f"{NS}:tamed", f"{NS}:bokar"),
+          (f"{NS}:tamed", f"{NS}:stannar"),
+          (f"{NS}:tamed", f"{NS}:foljer", f"{NS}:sadlad"),
+          (f"{NS}:tamed", f"{NS}:bokar", f"{NS}:sadlad", f"{NS}:vaskor")]
+for f in glob.glob(f"{BP}/entities/*.json"):
+    e = json.load(open(f))["minecraft:entity"]
+    namn = os.path.basename(f)
+    grupper = e["component_groups"]
+    for kombo in KOMBOR:
+        prio = {}
+        for g in kombo:
+            for k, v in grupper.get(g, {}).items():
+                if k.startswith("minecraft:behavior.") and isinstance(v, dict):
+                    prio.setdefault(v.get("priority"), []).append(f"{g}/{k}")
+        for k, v in e["components"].items():
+            if k.startswith("minecraft:behavior.") and isinstance(v, dict):
+                prio.setdefault(v.get("priority"), []).append(f"bas/{k}")
+        for p_, vilka in sorted(prio.items(), key=lambda x: (x[0] is None, x[0])):
+            if len(vilka) > 1:
+                bad.append(f"{namn}: prioritet {p_} delas av {', '.join(vilka)} "
+                           f"i {'+'.join(kombo)}")
+    # TVÅ KOMPONENTGRUPPER SOM DEKLARERAR SAMMA KOMPONENT får inte vara aktiva
+    # samtidigt. gris:vuxen och gris:kulting sätter båda minecraft:scale, och en
+    # kulting som föds med båda på blir fullvuxen — hundpaketets valpar gjorde
+    # precis det i två versioner.
+    for ev, kropp in e["events"].items():
+        lagg = kropp.get("add", {}).get("component_groups", [])
+        tas = set(kropp.get("remove", {}).get("component_groups", []))
+        for i2, a in enumerate(lagg):
+            for b in lagg[i2 + 1:]:
+                delade = set(grupper.get(a, {})) & set(grupper.get(b, {}))
+                if delade:
+                    bad.append(f"{namn}: {ev} lägger på både {a} och {b}, som båda "
+                               f"sätter {', '.join(sorted(delade))}")
+        # minecraft:entity_spawned undantas: den kör EN gång, i samma ögonblick
+        # som djuret skapas, innan någon annan grupp hunnit läggas på.
+        if ev == "minecraft:entity_spawned":
+            continue
+        for a in lagg:
+            for b, bk in grupper.items():
+                if b == a or b in tas or b in lagg:
+                    continue
+                delade = set(grupper.get(a, {})) & set(bk)
+                pas = any(b in x.get("add", {}).get("component_groups", [])
+                          for x in e["events"].values())
+                if delade and pas:
+                    bad.append(f"{namn}: {ev} lägger på {a} utan att ta bort {b} "
+                               f"— båda sätter {', '.join(sorted(delade))}")
+    # RIDNING KRÄVER STYRNING. minecraft:rideable ensamt ger en gris man sitter
+    # på medan den går dit den själv vill — exakt vanilla-grisens problem, som
+    # paketet finns för att lösa.
+    sadlad = grupper.get(f"{NS}:sadlad", {})
+    if "minecraft:rideable" in sadlad and \
+            "minecraft:behavior.controlled_by_player" not in sadlad:
+        bad.append(f"{namn}: rideable utan behavior.controlled_by_player")
+    # EGENSKAPERNAS INTERVALL måste rymma de värden händelserna sätter. Ett
+    # set_property utanför intervallet kastar vid körning, mitt i spelet.
+    props = e["description"].get("properties", {})
+    for ev, kropp in e["events"].items():
+        for p, v in (kropp.get("set_property") or {}).items():
+            if p not in props: bad.append(f"{namn}: {ev} sätter okänd egenskap {p}")
+            elif isinstance(v, int) and not (props[p]["range"][0] <= v <= props[p]["range"][1]):
+                bad.append(f"{namn}: {ev} sätter {p}={v}, utanför {props[p]['range']}")
+        for gr in kropp.get("add", {}).get("component_groups", []) + \
+                  list(kropp.get("remove", {}).get("component_groups", [])):
+            if gr not in grupper: bad.append(f"{namn}: {ev} nämner okänd grupp {gr}")
+    for seq in (e["events"].get(f"{NS}:nasta_lage", {}).get("sequence") or []):
+        for gr in seq.get("add", {}).get("component_groups", []) + \
+                  list(seq.get("remove", {}).get("component_groups", [])):
+            if gr not in grupper: bad.append(f"{namn}: nasta_lage nämner okänd grupp {gr}")
+# BIOMTAGGEN MÅSTE FINNAS. "mountain" ser rimlig ut, heter "extreme_hills" och
+# ger en ras som helt enkelt aldrig dyker upp i världen. Facit är vaniljas
+# BIOMDEFINITIONER, inte dess spawnregler.
+VANILJ = "/opt/bds/server/behavior_packs/vanilla/biomes"
+if os.path.isdir(VANILJ):
+    kanda = set()
+    for f in glob.glob(f"{VANILJ}/*.json"):
+        b = json.load(open(f))["minecraft:biome"]
+        kanda |= set(b.get("components", {}).get("minecraft:tags", {}).get("tags")
+                     or b.get("description", {}).get("tags") or [])
+    for f in glob.glob(f"{BP}/spawn_rules/*.json"):
+        d = json.load(open(f))["minecraft:spawn_rules"]
+        for v in d["conditions"]:
+            t = v.get("minecraft:biome_filter", {}).get("value")
+            if t and t not in kanda:
+                bad.append(f"{os.path.basename(f)}: biomtaggen '{t}' finns inte i vanilla")
+# VARJE VANILLA-BLOCK OCH -FÖREMÅL VI NÄMNER MÅSTE FINNAS. Ett felstavat id i
+# bökbarlistan gör att grisen aldrig hittar något; i healable eller breed_items
+# tystnar det bara och funktionen finns inte.
+KAT = "/opt/bds/server/behavior_packs/vanilla/item_catalog/crafting_item_catalog.json"
+if os.path.exists(KAT):
+    kanda = set(re.findall(r'"(minecraft:[a-z0-9_]+)"', open(KAT).read()))
+    egna_f = {f"{NS}:{os.path.basename(f)[:-5]}" for f in glob.glob(f"{BP}/items/*.json")}
+    n = lambda i: i if ":" in i else "minecraft:" + i
+    nas = {}
+    # BOKBAR och MALM står INTE här: de är block, och vaniljas blocks.json på
+    # disk är en ofullständig överskrivningsfil (744 poster, utan grass_block).
+    # Dem frågar serverkörningens ID-TEST motorn om i stället.
+    for f in glob.glob(f"{BP}/entities/*.json"):
+        e = json.load(open(f))["minecraft:entity"]
+        c, g = e["components"], e["component_groups"]
+        for i in c.get("minecraft:tameable", {}).get("tame_items", []):
+            nas.setdefault(n(i), "tame_items")
+        for grp, nyckel in ((f"{NS}:tamed", "minecraft:healable"),
+                            (f"{NS}:parar", "minecraft:breedable"),
+                            (f"{NS}:kulting", "minecraft:ageable")):
+            komp = g.get(grp, {}).get(nyckel, {})
+            for falt in ("items", "breed_items", "feed_items"):
+                for i in komp.get(falt, []):
+                    nas.setdefault(n(i["item"] if isinstance(i, dict) else i), falt)
+        for x in g.get(f"{NS}:tamed", {}).get("minecraft:interact", {}).get("interactions", []):
+            for v in re.findall(r'"value": "([a-z_]+)"',
+                                json.dumps(x.get("on_interact", {}).get("filters", {}))):
+                if v not in ("player", ):
+                    nas.setdefault(n(v), "interact")
+    for i, var in sorted(nas.items()):
+        if i not in kanda and i not in egna_f:
+            bad.append(f"okänt id '{i}' i {var}")
+# VARJE NYCKEL SOM VISAS FÖR SPELAREN MÅSTE FINNAS I ALLA SPRÅK. Spelaren ser
+# annars den råa nyckeln ("gris.vittring") mitt på skärmen.
+sprak = json.load(open(f"{RP}/texts/languages.json"))
+texter = {s: open(f"{RP}/texts/{s}.lang", encoding="utf-8").read() for s in sprak}
+kravs = set()
+for f in glob.glob(f"{BP}/entities/*.json"):
+    e = json.load(open(f))["minecraft:entity"]
+    ident = e["description"]["identifier"]
+    kravs |= {f"entity.{ident}.name", f"item.spawn_egg.entity.{ident}.name"}
+    for x in e["component_groups"].get(f"{NS}:tamed", {}).get(
+            "minecraft:interact", {}).get("interactions", []):
+        if x.get("interact_text") and not x["interact_text"].startswith("action.interact.ride"):
+            kravs.add(x["interact_text"])
+for f in glob.glob(f"{BP}/items/*.json"):
+    kravs.add("item." + json.load(open(f))["minecraft:item"]["description"]["identifier"] + ".name")
+js = open(f"{BP}/scripts/main.js").read()
+# `${NS}.vittring` i skriptet blir "gris.vittring" i spelet.
+kravs |= {"gris." + k for k in re.findall(r'\$\{NS\}\.([a-z0-9_.]+)', js)
+          if not k.endswith(".")}
+# de numrerade familjerna (lägen, väderstreck, malmnamn) räknas ur tabellerna
+kravs |= {f"gris.lage.{i}" for i in range(3)}
+kravs |= {f"gris.riktning.{i}" for i in range(4)}
+kravs |= {f"gris.malm.{i}" for i in range(len(re.findall(
+    r'"minecraft:[a-z0-9_]+"', re.search(r"export const MALM = \[(.*?)\];",
+                                         raser_js, re.S).group(1))))}
+for s2 in sprak:
+    for k in sorted(kravs):
+        if f"{k}=" not in texter[s2]:
+            bad.append(f"{s2}.lang saknar nyckeln '{k}'")
+# BP och RP ska ha samma texter — spelet läser RP:s, men en BP-fil som glidit
+# isär är en fälla nästa gång någon redigerar fel kopia.
+for s2 in sprak:
+    if open(f"{BP}/texts/{s2}.lang", encoding="utf-8").read() != texter[s2]:
+        bad.append(f"{s2}.lang skiljer mellan BP och RP")
+print("\n".join(bad))
+PY
+)
+if [ -n "$STRUKT" ]; then
+  echo "$STRUKT" | while read -r l; do [ -n "$l" ] && echo "  ❌ $l"; done
+  FAIL=1
+else
+  ok "manifest, egna uuid:n, motorkrav, geometri mot PNG, bennamn mot animationer,"
+  ok "renderarkontroller och client_sync, item_texture, gruppkrockar, ridstyrning,"
+  ok "egenskapsintervall, biomtaggar, block- och föremåls-id, språknycklar i båda språken"
+fi
+
+echo
+echo "[3/3] Skarp server (~1 min)"
+pkill -9 -x bedrock_server 2>/dev/null; sleep 2
+find "$SRV" -name "ContentLog*" -delete 2>/dev/null
+rm -rf "$WORLD/db" "$WORLD/behavior_packs" "$WORLD/resource_packs"
+mkdir -p "$WORLD/behavior_packs" "$WORLD/resource_packs"
+cp -r "$SRC/SnuffleCompanions_BP" "$WORLD/behavior_packs/"
+cp -r "$SRC/SnuffleCompanions_RP" "$WORLD/resource_packs/"
+python3 - "$WORLD" <<'PY'
+import json, sys
+W = sys.argv[1]
+bp = json.load(open(f"{W}/behavior_packs/SnuffleCompanions_BP/manifest.json"))["header"]
+rp = json.load(open(f"{W}/resource_packs/SnuffleCompanions_RP/manifest.json"))["header"]
+json.dump([{"pack_id": bp["uuid"], "version": bp["version"]}],
+          open(f"{W}/world_behavior_packs.json", "w"))
+json.dump([{"pack_id": rp["uuid"], "version": rp["version"]}],
+          open(f"{W}/world_resource_packs.json", "w"))
+PY
+sed -i 's/^level-name=.*/level-name=Gristest/' "$SRV/server.properties"
+cd "$SRV" || exit 1
+{
+  sleep 28
+  echo "tickingarea add 0 0 0 48 48 48 gris"; sleep 3
+  # MARK OCH LUFTFICKA FÖRST. Utan dem dör grisen inom en sekund — testvärlden
+  # är inte platt vid y=20, och en summonad gris faller eller kvävs. Felet ser ut
+  # som att tämjningen inte fungerar, men djuret är borta, inte otämjt.
+  # ARENAN MÅSTE RYMMA VITTRINGEN: testkroken lägger diamantmalm fyra block
+  # ÖSTERUT om grisen, och det måste vara inuti fickan.
+  echo "fill 2 19 2 46 19 22 stone"; sleep 1
+  echo "fill 2 20 2 46 26 22 air"; sleep 1
+  for r in $RASER; do
+    echo "summon gris:$r 10 21 10"; sleep 2
+    echo "event entity @e[type=gris:$r] gris:on_tame"; sleep 1
+    echo "testfor @e[type=gris:$r,x=10,y=21,z=10,r=30,has_property={gris:tam=1}]"; sleep 1
+    echo "kill @e[type=gris:$r]"; sleep 1
+  done
+  # LÄGESVÄXLINGEN: följer -> bökar -> stannar -> följer.
+  # Testgrisen får ett NAMN och väljs på det; en egen rad ("Found Lagetest") kan
+  # inte förväxlas med tämjningens träffar.
+  echo "summon gris:soot \"Lagetest\" 10 21 10"; sleep 2
+  echo "event entity @e[name=Lagetest] gris:on_tame"; sleep 1
+  echo "testfor @e[name=Lagetest,has_property={gris:lage=0}]"; sleep 1
+  for v in 1 2 0; do
+    echo "event entity @e[name=Lagetest] gris:nasta_lage"; sleep 1
+    echo "testfor @e[name=Lagetest,has_property={gris:lage=$v}]"; sleep 1
+  done
+  echo "kill @e[name=Lagetest]"; sleep 1
+  # SADELN OCH VÄSKORNA. Att de SYNS går inte att prova här (servern renderar
+  # ingenting), men att egenskaperna sätts och att rideable kommer på gör det.
+  echo "summon gris:ember \"Sadeltest\" 10 21 10"; sleep 2
+  echo "event entity @e[name=Sadeltest] gris:on_tame"; sleep 1
+  echo "event entity @e[name=Sadeltest] gris:sadla"; sleep 1
+  echo "testfor @e[name=Sadeltest,has_property={gris:sadlad=1}]"; sleep 1
+  echo "event entity @e[name=Sadeltest] gris:vaskor_pa"; sleep 1
+  echo "testfor @e[name=Sadeltest,has_property={gris:vaskor=1}]"; sleep 1
+  echo "kill @e[name=Sadeltest]"; sleep 1
+  # KULTINGEN. Parningen själv kräver två grisar i kärlekshumör och en spelare
+  # med foder, men det parningen SLUTAR med — gris:fodd på ungen — går att prova
+  # direkt, och det är där felen sitter: en kulting som föds otämjd, eller
+  # fullvuxen för att både vuxen- och kultinggruppen sitter på.
+  echo "summon gris:nilla \"Kultingtest\" 10 21 10"; sleep 2
+  echo "event entity @e[name=Kultingtest] gris:fodd"; sleep 1
+  echo "testfor @e[name=Kultingtest,has_property={gris:tam=1}]"; sleep 1
+  echo "event entity @e[name=Kultingtest] gris:vuxen_nu"; sleep 1
+  echo "testfor @e[name=Kultingtest,has_property={gris:tam=1}]"; sleep 1
+  echo "kill @e[name=Kultingtest]"; sleep 1
+  # BÖKANDET, VITTRINGEN OCH TRYFFELN. Alla tre utlöses normalt av slumpen eller
+  # av en spelare, som testet inte har; krokarna kör samma funktioner.
+  echo "summon gris:bramble \"Nostest\" 10 21 10"; sleep 2
+  echo "event entity @e[name=Nostest] gris:on_tame"; sleep 1
+  echo "event entity @e[name=Nostest] gris:nasta_lage"; sleep 1
+  echo "testfor @e[name=Nostest,has_property={gris:lage=1}]"; sleep 1
+  echo "scriptevent gris:test_bok kor"; sleep 5
+  echo "scriptevent gris:test_vittring kor"; sleep 4
+  echo "scriptevent gris:test_ids kor"; sleep 3
+  echo "scriptevent gris:test_foremal kor"; sleep 3
+  echo "kill @e[name=Nostest]"; sleep 1
+  echo "kill @e[type=item]"; sleep 1
+  sleep 2; echo "stop"; sleep 8
+} | LD_LIBRARY_PATH=. ./bedrock_server > "$LOG" 2>&1
+pkill -9 -x bedrock_server 2>/dev/null
+
+LOADED=$(grep -c "Pack Stack.*Snuffle Companions" "$LOG")
+SUM=$(grep -c "Object successfully summoned" "$LOG")
+TAM=$(grep -c "Found entity.gris:" "$LOG")
+HARD=$(grep -ciE "Syntax error|unknown component|invalid" "$LOG")
+LAGE=$(grep -c "Found Lagetest" "$LOG")
+SADEL=$(grep -c "Found Sadeltest" "$LOG")
+KULT=$(grep -c "Found Kultingtest" "$LOG")
+NOSLAGE=$(grep -c "Found Nostest" "$LOG")
+BOK=$(grep -c "BOK-TEST OK" "$LOG")
+VITT=$(grep -c "VITTRING-TEST OK" "$LOG")
+FOREMAL=$(grep -c "FOREMAL-TEST OK" "$LOG")
+IDS=$(grep -c "ID-TEST OK" "$LOG")
+CL=$(find "$SRV" -name "ContentLog*" 2>/dev/null | head -1)
+[ "$LOADED" -ge 1 ] && ok "paketet laddades" || bad "paketet laddades INTE"
+[ "$SUM" -ge "$ANTAL" ] && ok "alla raser spawnar ($SUM/$ANTAL: $RASER)" || bad "bara $SUM/$ANTAL spawnade"
+[ "$TAM" -ge "$ANTAL" ] && ok "tämjningen sätter gris:tam ($TAM/$ANTAL, has_property)" || bad "bara $TAM/$ANTAL blev tämjda"
+[ "$LAGE" -ge 4 ] && ok "lägena växlar: följer -> bökar -> stannar -> följer ($LAGE/4)" || bad "lägesväxlingen gav $LAGE/4"
+[ "$SADEL" -ge 2 ] && ok "sadel och sadelväskor sätts ($SADEL/2)" || bad "sadelkedjan gav $SADEL/2"
+[ "$KULT" -ge 2 ] && ok "kultingen föds tämjd och växer upp ($KULT/2)" || bad "kultingkedjan gav $KULT/2"
+[ "$NOSLAGE" -ge 1 ] && ok "bökläget går att slå på" || bad "bökläget slogs inte på"
+[ "$BOK" -ge 1 ] && ok "bökandet: grisen gräver upp en tryffel som hamnar på marken" || bad "bökandet gav ingen tryffel (se BOK-TEST i $LOG)"
+[ "$VITT" -ge 1 ] && ok "vittringen hittar malmen OCH säger rätt väderstreck" || bad "vittringen misslyckades (se VITTRING-TEST i $LOG)"
+[ "$FOREMAL" -ge 1 ] && ok "tryffeln är ett registrerat föremål" || bad "tryffeln gick inte att skapa"
+[ "$IDS" -ge 1 ] && ok "alla block i bökbarlistan och malmlistan finns i motorn" || bad "okända block-id (se ID-TEST i $LOG)"
+[ "$HARD" -eq 0 ] && ok "inga syntax-/komponentfel" || bad "$HARD allvarliga fel (se $LOG)"
+# TESTETS EGNA KVITTON ÄR INTE INNEHÅLLSFEL. Krokarna skriver med console.warn,
+# som hamnar i ContentLog som [Scripting][warning] — och grinden underkände
+# alltså en helt grön körning på sina egna utskrifter. De filtreras bort på
+# "-TEST"; varje sådan rad har redan en egen rad i sammanställningen ovan, så
+# ingenting göms undan. Allt ANNAT från spelet räknas fortfarande som fel.
+CLREST=""
+[ -n "$CL" ] && CLREST=$(grep -v '^[[:space:]]*$' "$CL" \
+  | grep -v '\[Scripting\]\[inform\]' | grep -v '\[Scripting\]\[warning\].*-TEST' || true)
+if [ -n "$CLREST" ]; then
+  bad "innehållsfel i $(basename "$CL")"; echo "$CLREST" | head -8 | sed 's/^/     /'
+else ok "inga innehållsfel"; fi
+
+echo
+[ $FAIL -eq 0 ] && echo "=== SNUFFLE COMPANIONS GRÖNT ===" || echo "=== FEL HITTADE (logg: $LOG) ==="
+exit $FAIL

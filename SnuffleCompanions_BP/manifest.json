@@ -1,0 +1,54 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Snuffle Companions",
+    "description": "Hand-made pigs that snuffle out ore, root up truffles and carry you.",
+    "uuid": "6dc651b0-7786-4940-802e-6a24772d875e",
+    "version": [
+      0,
+      1,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      50
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "0aefe414-010c-45a8-8be5-f028dd1af986",
+      "version": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "type": "script",
+      "language": "javascript",
+      "uuid": "c7f43064-5760-4136-b4fc-016393115508",
+      "version": [
+        0,
+        1,
+        0
+      ],
+      "entry": "scripts/main.js"
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "00372b21-1091-4b76-8efc-4838dcb6b33c",
+      "version": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "module_name": "@minecraft/server",
+      "version": "1.9.0"
+    }
+  ]
+}

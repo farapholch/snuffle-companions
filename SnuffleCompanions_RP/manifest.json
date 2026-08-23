@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Snuffle Companions (resources)",
+    "description": "Hand-made pigs that snuffle out ore, root up truffles and carry you.",
+    "uuid": "00372b21-1091-4b76-8efc-4838dcb6b33c",
+    "version": [
+      0,
+      1,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      20,
+      50
+    ]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "0173c5fb-affe-4389-8963-3fc4f41f5b81",
+      "version": [
+        0,
+        1,
+        0
+      ]
+    }
+  ]
+}
