@@ -1,5 +1,45 @@
 # Ändringar
 
+## 1.0.2 — 2026-08-23
+
+*(1.0.1 finns inte. En avbruten körning hann höja manifestet innan den stoppades,
+och leveransloggboken visar att ingenting någonsin skickades under det numret.
+Att återanvända det hade varit värre: två olika innehåll under samma version är
+precis vad loggboken finns för att hindra.)*
+
+
+Loggan tillbaka till den första uppställningen: tre stora grisar som står tätt,
+i stället för den glesare omgången med mindre djur. Pelle valde den första.
+
+**Och den första gick in i ramen.** Blossoms vänsterkant låg på x=6 med ramen på
+0–15, alltså tio pixlar in, och grisen såg avklippt ut. Det syntes inte förrän
+någon tittade på den färdiga bilden — så `make_logo.py` har nu en spärr som
+RÄKNAR: varje gris bredd härleds ur samma tabell som blit() använder, och går
+någon in i ramen stannar bygget med siffran utskriven. Spärren är provad mot
+den gamla placeringen och faller på den.
+
+Orsaken var värd att skriva ner: Blossom är den BREDASTE spriten (178 px mot
+Soots 176 och Nillas 140) trots att hon inte är den högsta, så en x-andel som
+fungerar för de andra räcker inte för henne. Soot och Nilla flyttades med åt
+höger så att överlappen blev som i originalet — flyttas bara Blossom hamnar hon
+ovanpå Soots huvud i stället.
+
+Ingen kodändring i paketet, men paketikonen HÄRLEDS ur loggan och ligger i båda
+paketen, så paketens innehåll ändrades — och då måste versionen upp.
+Leveransloggboken vägrar annars skicka v1.0.0 en gång till med annat innehåll,
+vilket är precis vad den är till för.
+
+## 1.0.1 — 2026-08-23
+
+Loggan tillbaka till den första uppställningen: tre stora grisar som står tätt,
+i stället för den glesare omgången med mindre djur. Pelle valde den första.
+
+Ingen kodändring, men paketikonen HÄRLEDS ur loggan och ligger i båda paketen,
+så paketens innehåll ändrades — och då måste versionen upp. Leveransloggboken
+vägrar annars skicka v1.0.0 en gång till med annat innehåll, vilket är precis
+vad den är till för: två filer med samma pack-uuid och samma version men olika
+innehåll får Minecraft att vägra ladda den ena.
+
 ## 1.0.0 — 2026-08-23
 
 Första riktiga versionen. Logga, paketikon, butiksbilder, sajt och leveranskedja

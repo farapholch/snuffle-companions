@@ -42,14 +42,20 @@ NYCKEL = (255, 0, 255, 255)
 # HÖJDERNA ÄR RÄKNADE MOT RAMEN: fotlinjen ligger på 0,86 och ramen på 0,97, så
 # klövarna hamnar innanför. En logga med avklippta fötter ser trasig ut.
 # GRISAR ÄR BREDARE ÄN HUNDAR vid samma höjd, så siffrorna är lägre än
-# hundloggans. Först provades 178-190 px: klövarna hamnade innanför ramen, men
-# grisarna gick in i VARANDRA — Blossoms bakdel låg över Soots huvud, och tre
-# figurer som överlappar läses som en klump, precis det tre stora djur ska
-# undvika. Bredden, inte höjden, är gränsen för en gris.
+# hundloggans 218-232 px.
+#
+# DE TRE FÅR RÖRA VID VARANDRA, och det är avsiktligt. En omgång med mindre och
+# glesare grisar (156/168/136 px) provades för att ingen skulle överlappa — den
+# blev luftigare men svagare, och Pelle valde den här. Tre stora djur som står
+# tätt läser som en flock; tre små med luft emellan läser som ett provkarta.
+# Ändra inte ner dem igen utan att fråga.
+# Blossom flyttades in från 0,195 (då gick hon in i ramen), och Soot och Nilla
+# följde med åt höger så att ÖVERLAPPEN blev som i originalet — flyttas bara
+# Blossom hamnar hon ovanpå Soots huvud i stället.
 UPPSTALLNING = [
-    ("blossom", 0.180, 0.845, 156, ("sadel",)),
-    ("soot", 0.500, 0.880, 168, ("tryffel",)),
-    ("nilla", 0.822, 0.845, 136, ()),
+    ("blossom", 0.218, 0.850, 178, ("sadel",)),
+    ("soot", 0.525, 0.885, 190, ("tryffel",)),
+    ("nilla", 0.815, 0.850, 158, ()),
 ]
 
 
@@ -116,6 +122,30 @@ def blit(dst, src, cx, cy, out_h):
                 dst[py][px] = p
 
 
+# RAMEN ÄR EN GRÄNS, inte en dekoration. Blossoms vänsterkant hamnade tio pixlar
+# INNE i ramen och grisen såg avklippt ut — och det syntes inte förrän Pelle
+# tittade på den färdiga bilden. Blossom är den BREDASTE spriten (178 px mot
+# Soots 176 och Nillas 140) trots att hon inte är den högsta, så en x-andel som
+# fungerar för de andra räcker inte för henne. Bredden räknas fram ur samma
+# tabell som blit() använder, så måttet kan inte glida isär från bilden.
+RAM_INRE = 16                              # ramen upptar 0..15
+KONTUR = 4                                 # den vita konturen ritas 4 px utanför
+
+
+def kontrollera(rasid, sx, sy, out_w, hojd):
+    v, h = sx - out_w // 2 - KONTUR, sx - out_w // 2 + out_w + KONTUR
+    o, u = sy - hojd - KONTUR, sy + KONTUR
+    fel = []
+    if v < RAM_INRE: fel.append(f"vänsterkant {v} < {RAM_INRE}")
+    if h > P - RAM_INRE: fel.append(f"högerkant {h} > {P - RAM_INRE}")
+    if o < RAM_INRE: fel.append(f"överkant {o} < {RAM_INRE}")
+    if u > P - RAM_INRE: fel.append(f"underkant {u} > {P - RAM_INRE}")
+    if fel:
+        raise SystemExit(f"❌ {rasid} går in i ramen: {', '.join(fel)}\n"
+                         f"   (bredd {out_w} px vid höjd {hojd}) — justera "
+                         f"x-andelen eller höjden i UPPSTALLNING")
+
+
 for rasid, fx, fy, hojd, visa in UPPSTALLNING:
     geoid, tex = next((g, t) for r, g, t in rp.rasklient() if r == rasid)
     src = rp.rita(geoid, tex, 300, 300, yaw=26, pitch=10, visa=visa, bakgrund=NYCKEL)
@@ -127,6 +157,7 @@ for rasid, fx, fy, hojd, visa in UPPSTALLNING:
     kol = [x for x in range(300) if any(nyckl[y][x] != TOM for y in rader)]
     nyckl = [rad[kol[0]:kol[-1] + 1] for rad in nyckl[rader[0]:rader[-1] + 1]]
     sx, sy = int(P * fx), int(P * fy)
+    kontrollera(rasid, sx, sy, int(len(nyckl[0]) / (len(nyckl) / hojd)), hojd)
     # ELLIPS UNDER GRISEN: en mjuk skugga grundar djuret och skiljer det från
     # marken bättre än en rak stapel.
     for y in range(sy - hojd // 12, sy + hojd // 12):
