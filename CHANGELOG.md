@@ -1,5 +1,32 @@
 # Ändringar
 
+## 1.0.0 — 2026-08-23
+
+Första riktiga versionen. Logga, paketikon, butiksbilder, sajt och leveranskedja
+— allt som gör paketet till en produkt i stället för ett bygge.
+
+- `tools/make_logo.py` — projektavatar i plommon, tre grisar med klövavtryck i
+  himlen. Bottenfärgen skiljer paketet från hundpaketets gröna som miniatyr i
+  samma butikslista.
+- `tools/make_promo.py` — hjältebild 1280x720, paketikon 256x256 till båda
+  paketen, favicon och apple-touch-icon, alla härledda ur loggan så de inte kan
+  glida isär.
+- Sajt på `snuffle.pelleops.se` (nginx :8094) med `publish_site.sh`.
+- `tools/snuffle-ship` — bygg → test → falsifiering → paketering → Mod Mate.
+  Vägrar skicka ett rött bygge, vägrar skicka samma version två gånger med
+  olika innehåll, och packar upp arkivet igen för att bevisa att det går.
+- Butikstext och engelska release-noter i `publish/`.
+
+### Tre saker bilderna lärde ut
+
+- **Bredden, inte höjden, är gränsen för en gris i en logga.** Tre grisar på
+  hundloggans 178–190 px höll sig innanför ramen men gick in i VARANDRA, och tre
+  figurer som överlappar läses som en klump.
+- **En bökad fläck behöver höjd.** Ett block hög och åtta bred läser som en
+  liggande planka på en äng sedd snett uppifrån, inte som ett hål i gräset.
+- **Tryffelbäraren måste vändas mot kameran.** I trekvartsvy svänger huvudet
+  undan och tryffeln under käken sticker ut som en planka ur ansiktet.
+
 ## 0.1.0 — 2026-08-23
 
 Gående skelett: fem grisar som går att tämja, kommendera, sadla, rida och föda

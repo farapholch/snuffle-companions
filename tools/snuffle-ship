@@ -1,0 +1,182 @@
+#!/bin/bash
+# Bygg → testa → paketera → skicka till Mod Mate, i ett kommando.
+# Vägrar skicka om snuffle-test hittar fel.
+#
+# Användning:  tools/snuffle-ship                 # bygg + testa + paketera + Mod Mate
+#              tools/snuffle-ship --bump minor    # höj version (major|minor|patch) först
+#              tools/snuffle-ship --no-upload     # bygg + testa, men skicka inte
+#              tools/snuffle-ship --curseforge    # publicera på CurseForge (BARA på order)
+set -u
+SRC=/opt/snuffle-companions
+BUMP=""; UPLOAD=1; CURSEFORGE=0
+# Token och kod är knutna till FÖRFATTARKONTOT respektive appen, inte till
+# projektet — kattpaketets duger lika bra om grisprojektet inte har egna filer.
+CF_TOKEN_FILE="$SRC/.curseforge-token"
+[ -f "$CF_TOKEN_FILE" ] || CF_TOKEN_FILE=/opt/purrfect-companions/.curseforge-token
+CF_PROJECT_FILE="$SRC/.curseforge-project"
+CF_API=https://bedrock.curseforge.com/api
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --bump) case "${2:-}" in major|minor|patch) BUMP="$2"; shift 2;; *) BUMP=patch; shift;; esac;;
+    --no-upload) UPLOAD=0; shift;;
+    --curseforge) CURSEFORGE=1; shift;;
+    *) echo "okänt argument: $1"; exit 1;;
+  esac
+done
+
+if [ -n "$BUMP" ]; then
+  python3 - "$SRC" "$BUMP" <<'PY'
+import json, sys
+SRC, kind = sys.argv[1], sys.argv[2]
+BP = f"{SRC}/SnuffleCompanions_BP/manifest.json"
+RP = f"{SRC}/SnuffleCompanions_RP/manifest.json"
+bp = json.load(open(BP)); rp = json.load(open(RP))
+v = list(bp["header"]["version"]); i = {"major": 0, "minor": 1, "patch": 2}[kind]
+v[i] += 1
+for j in range(i + 1, 3): v[j] = 0
+for m in (bp, rp):
+    m["header"]["version"] = v
+    for mod in m["modules"]: mod["version"] = v
+for d in bp.get("dependencies", []):
+    if d.get("uuid") == rp["header"]["uuid"]: d["version"] = v
+json.dump(bp, open(BP, "w"), indent=2); json.dump(rp, open(RP, "w"), indent=2)
+print("ny version: " + ".".join(map(str, v)))
+PY
+fi
+
+VER=$(python3 -c "import json;print('.'.join(map(str,json.load(open('$SRC/SnuffleCompanions_BP/manifest.json'))['header']['version'])))")
+
+# BYGG FÖRST, ALLTID. Paketet är genererat, och en körning som testar det som
+# ligger på disk i stället för det generatorn skulle ha skrivit testar fel sak.
+# Manifestet skrivs INTE av generatorn, så versionshöjningen ovan överlever.
+echo "=== bygger v$VER ==="
+python3 "$SRC/tools/make_pigs.py" | sed 's/^/   /' || { echo "❌ generatorn föll"; exit 1; }
+python3 "$SRC/tools/make_logo.py" | sed 's/^/   /'
+python3 "$SRC/tools/make_promo.py" | sed 's/^/   /'
+python3 "$SRC/tools/render_pigs.py" | sed 's/^/   /'
+python3 "$SRC/tools/render_pigs.py" --butik | sed 's/^/   /'
+
+echo
+echo "=== testar v$VER innan leverans ==="
+if ! "$SRC/tools/snuffle-test"; then
+  echo; echo "❌ TESTET FAILADE — skickar INTE. Fixa felen och kör igen."
+  exit 1
+fi
+echo
+# SPÄRRARNA MÅSTE OCKSÅ BEVISAS. Ett grönt test där grindarna slutat fungera är
+# värre än inget test: det ger falskt lugn. Falsifieringen är billig (ingen
+# server) och körs därför före varje leverans.
+echo "=== provar att spärrarna faller ==="
+python3 "$SRC/tools/snuffle-falsifiera" || { echo "❌ spärrarna är inte att lita på"; exit 1; }
+
+STAGE="/tmp/snuffle-stage"
+rm -rf "$STAGE"; mkdir -p "$STAGE"
+# BARA DE TVÅ PAKETEN. Ett .mcaddon som bär med sig tools/, site/ och publish/
+# blir tio gånger så stort och läcker allt som inte hör hemma i en spelares
+# nedladdning. __pycache__ följer med tyst om man kopierar hela trädet.
+cp -r "$SRC/SnuffleCompanions_BP" "$SRC/SnuffleCompanions_RP" "$STAGE/"
+find "$STAGE" -name "__pycache__" -type d -prune -exec rm -rf {} + 2>/dev/null
+find "$STAGE" -name "*.pyc" -delete 2>/dev/null
+
+OUT="/tmp/snuffle-companions-v$VER.mcaddon"
+rm -f "$OUT"
+( cd "$STAGE" && zip -r -q "$OUT" SnuffleCompanions_BP SnuffleCompanions_RP )
+SHA=$(sha256sum "$OUT" | cut -d' ' -f1)
+echo "📦 paketerad: $(basename "$OUT") ($(du -h "$OUT" | cut -f1))"
+
+# PAKETET MÅSTE GÅ ATT PACKA UPP och innehålla båda manifesten. En zip som
+# skapades medan en fil skrevs ser hel ut tills någon försöker installera den.
+python3 - "$OUT" <<'PY' || exit 1
+import json, sys, zipfile
+z = zipfile.ZipFile(sys.argv[1])
+trasig = z.testzip()
+if trasig:
+    print(f"❌ trasig post i arkivet: {trasig}"); sys.exit(1)
+namn = z.namelist()
+for krav in ("SnuffleCompanions_BP/manifest.json", "SnuffleCompanions_RP/manifest.json",
+             "SnuffleCompanions_BP/scripts/main.js", "SnuffleCompanions_BP/pack_icon.png",
+             "SnuffleCompanions_RP/pack_icon.png"):
+    if krav not in namn:
+        print(f"❌ {krav} saknas i paketet"); sys.exit(1)
+bp = json.loads(z.read("SnuffleCompanions_BP/manifest.json"))
+rp = json.loads(z.read("SnuffleCompanions_RP/manifest.json"))
+if bp["header"]["version"] != rp["header"]["version"]:
+    print("❌ BP och RP har olika version i paketet"); sys.exit(1)
+print(f"   arkivet går att packa upp: {len(namn)} filer, v"
+      + ".".join(map(str, bp["header"]["version"])))
+PY
+
+# Två filer med samma pack-uuid OCH samma version men olika innehåll får
+# Minecraft att vägra ladda den ena. Loggboken gör om det till ett stopp.
+# Zip-arkiv är inte reproducerbara (tidsstämplar), så arkivets sha duger inte
+# för att avgöra om innehållet ändrats — filerna hashas i stället.
+LEDGER="$SRC/.shipped.tsv"
+CONTENT_SHA=$(cd "$STAGE" && find . -type f | LC_ALL=C sort | xargs sha256sum | sha256sum | cut -d" " -f1)
+if PREV=$(grep -P "^$VER\t" "$LEDGER" 2>/dev/null | tail -1 | cut -f3); [ -n "$PREV" ]; then
+  if [ "$PREV" != "$CONTENT_SHA" ]; then
+    echo "❌ v$VER är redan utskickad med ANNAT innehåll"
+    echo "   Höj versionen (--bump patch) — skicka aldrig samma version två gånger."
+    exit 1
+  fi
+  echo "   (samma innehåll som redan utskickad v$VER — skickar om)"
+fi
+
+if [ "$CURSEFORGE" -eq 1 ]; then
+  # CURSEFORGE PUBLICERAS BARA PÅ UTTRYCKLIG ORDER. Flaggan ÄR ordern; det här
+  # skriptet får aldrig köras med --curseforge på eget bevåg. Projekt-ID:t ligger
+  # i en egen fil som inte finns förrän projektet är skapat, så ett slarvigt
+  # körkommando stannar här i stället för att ladda upp någonstans.
+  [ -f "$CF_PROJECT_FILE" ] || { echo "❌ inget projekt-ID i $CF_PROJECT_FILE — skapa projektet på CurseForge först"; exit 1; }
+  [ -f "$CF_TOKEN_FILE" ] || { echo "❌ ingen CurseForge-token i $CF_TOKEN_FILE"; exit 1; }
+  CF_PROJECT=$(tr -d '[:space:]' < "$CF_PROJECT_FILE")
+  METAFILE=/tmp/snuffle-cf-metadata.json
+  python3 - "$VER" "$METAFILE" "$SRC" <<'PYMETA'
+import json, sys
+ver, ut, src = sys.argv[1], sys.argv[2], sys.argv[3]
+# BARA NYASTE POSTEN. Kattprojektet skickade hela changeloggen och fick 500
+# "unhandled exception" vid 28 452 tecken två gånger i rad.
+# BUTIKENS SPRÅK ÄR ENGELSKA. CHANGELOG.md är projektets egen logg och är på
+# svenska; publish/release-notes.md är samma historia för läsaren på
+# butikssidan. Skickas fel fil står det svenska på en engelsk produktsida.
+full = open(f"{src}/publish/release-notes.md", encoding="utf-8").read()
+senaste = full.split("\n## ")[1] if "\n## " in full else full
+kort = "## " + senaste.split("\n## ")[0].rstrip()
+json.dump({"changelog": kort, "changelogType": "markdown",
+           "displayName": f"Snuffle Companions {ver}", "releaseType": "release"},
+          open(ut, "w", encoding="utf-8"))
+print(f"   metadata: {len(kort)} tecken changelog")
+PYMETA
+  echo "☁️  laddar upp till CurseForge-projekt $CF_PROJECT ..."
+  # OBS: gameVersions ska INTE skickas för Bedrock-projekt — API:et svarar
+  # "Invalid game version ID ... belongs to an invalid game". Java kräver det.
+  RESP=$(curl -s --max-time 180 -X POST \
+    -H "X-Api-Token: $(cat "$CF_TOKEN_FILE")" \
+    -F "metadata=<$METAFILE" -F "file=@$OUT" \
+    "$CF_API/projects/$CF_PROJECT/upload-file")
+  echo "   svar: $RESP"
+  echo "$RESP" | grep -q '"id"' && echo "✅ uppladdad till CurseForge" || { echo "❌ CurseForge-uppladdningen misslyckades"; exit 1; }
+  printf '%s\t%s\t%s\n' "$VER" "curseforge" "$CONTENT_SHA" >> "$LEDGER"
+  exit 0
+fi
+
+[ "$UPLOAD" -eq 0 ] && { echo "(--no-upload: hoppar över Mod Mate)"; echo "   filen ligger kvar: $OUT"; exit 0; }
+
+# Mod Mate-koden är knuten till APPEN, inte till projektet — kattpaketets duger
+# lika bra om grisprojektet inte har en egen.
+CODE_FILE="$SRC/.modmate-code"
+[ -f "$CODE_FILE" ] || CODE_FILE=/opt/purrfect-companions/.modmate-code
+if [ ! -f "$CODE_FILE" ]; then
+  echo "❌ ingen Mod Mate-kod sparad. Lägg transfer-koden i $SRC/.modmate-code"
+  exit 1
+fi
+CODE=$(tr -d '[:space:]' < "$CODE_FILE")
+RESP=$(curl -s --max-time 120 -X POST -F "file=@$OUT;type=application/octet-stream" \
+  "https://modmate.dev/ModMateTransfer/upload?code=$CODE")
+echo "☁️  Mod Mate: $RESP"
+if echo "$RESP" | grep -q "$SHA"; then
+  echo "✅ checksumma verifierad — filen kom fram intakt"
+  printf '%s\t%s\t%s\n' "$VER" "modmate" "$CONTENT_SHA" >> "$LEDGER"
+else
+  echo "⚠️  checksumman i svaret matchar inte lokal fil ($SHA) — kontrollera manuellt"
+  exit 1
+fi

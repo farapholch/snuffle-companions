@@ -1,0 +1,112 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Snuffle Companions — Minecraft Bedrock add-on</title>
+<meta name="description" content="Five hand-made pigs for Minecraft Bedrock. They sniff out ore through solid rock, root up truffles and carry you — with steering that actually works.">
+<meta property="og:title" content="Snuffle Companions">
+<meta property="og:description" content="Five hand-made pigs for Minecraft Bedrock — they smell ore through rock, dig up truffles and can be ridden properly.">
+<meta property="og:image" content="logo.png">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#241820">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+ background:linear-gradient(135deg,#1a1216,#241820);color:#fff;min-height:100vh;padding:32px 18px 60px}
+.w{max-width:780px;margin:0 auto}
+header{text-align:center;margin-bottom:26px}
+h1{font-size:2.2rem;margin-bottom:6px;background:linear-gradient(45deg,#e8a898,#d98a6a);
+ -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.tag{color:rgba(255,255,255,.68);font-size:1.02rem}
+h2{font-size:1.15rem;margin:34px 0 14px;color:#e0a992}
+p{color:rgba(255,255,255,.82);line-height:1.65;margin-bottom:12px}
+img.hero{width:100%;border-radius:14px;margin:18px 0;display:block;image-rendering:pixelated}
+img.logga{display:block;margin:0 auto 14px;width:min(240px,60%);height:auto;
+ border-radius:16px;image-rendering:pixelated;box-shadow:0 6px 22px rgba(0,0,0,.45)}
+.cta{display:block;text-align:center;padding:16px;border-radius:13px;font-weight:700;font-size:1.06rem;
+ text-decoration:none;color:#1c1216;background:linear-gradient(45deg,#e8a898,#d98a6a);margin:22px 0 10px}
+.cta.alt{background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.18);
+ color:#fff;font-weight:600;font-size:.95rem}
+.soon{margin:22px 0 10px;padding:18px;border-radius:14px;
+ background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.10)}
+.soonhead{text-align:center;font-weight:700;color:#f2d4c6;margin-bottom:4px}
+table{width:100%;border-collapse:collapse;font-size:.92rem;margin-bottom:10px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.09)}
+th{color:#e0a992;font-size:.82rem;text-transform:uppercase;letter-spacing:.04em}
+td.num{font-variant-numeric:tabular-nums;color:#f2d4c6}
+ul{margin:0 0 12px 20px;color:rgba(255,255,255,.82);line-height:1.75}
+li b{color:#f2d4c6}
+.cap{color:rgba(255,255,255,.5);font-size:.83rem;text-align:center;margin-bottom:6px}
+footer{margin-top:40px;padding-top:20px;border-top:1px solid rgba(255,255,255,.1);
+ color:rgba(255,255,255,.55);font-size:.86rem;line-height:1.7;text-align:center}
+footer a{color:#e0a992}
+</style></head><body><div class="w">
+
+<header>
+<img class="logga" src="logo.png" alt="Snuffle Companions">
+<h1>Snuffle Companions</h1>
+<p class="tag">Five hand-made pigs for Minecraft Bedrock</p>
+</header>
+
+<img class="hero" src="hero.png" alt="Five pigs in a meadow, with freshly rooted earth and a truffle">
+
+<p>Minecraft already has a pig. It exists to become pork, and riding it with a
+carrot on a stick barely steers. This gives the pig a job: it <b>smells ore
+through solid rock</b> and tells you which way it lies, it <b>roots up truffles</b>
+out of the ground, and saddled it <b>actually steers</b>.</p>
+
+<div class="soon">
+<p class="soonhead">Version __VERSION__ is finished and tested</p>
+<p class="cap">It goes up on the places people install Bedrock add-ons from.
+Nothing to download here yet.</p>
+</div>
+
+<h2>What they do</h2>
+<ul>
+<li><b>Catch a scent.</b> Put a pig in Snuffle mode and it senses ore through the
+stone around it, then tells you what it smells, which way, and how far. A compass
+direction and a distance — not exact coordinates. It tells you where to dig and
+leaves the digging to you.</li>
+<li><b>Root up truffles.</b> In Snuffle mode a pig digs truffles out of grass,
+dirt, podzol, mycelium, moss and mud. You see the truffle in its snout for a
+moment before it drops, so you can tell where it came from.</li>
+<li><b>Carry you properly.</b> A saddle makes a pig rideable with full steering,
+the way a horse steers. Add a chest for saddlebags.</li>
+<li><b>Take commands.</b> Right-click with a stick to cycle Follow, Snuffle and
+Stay.</li>
+<li><b>Have piglets.</b> Feed two tame pigs of the same breed a truffle, a potato
+or a beetroot and you get a piglet, born already yours. It grows up.</li>
+</ul>
+
+<p>Truffles are food, and they are also the best breeding feed — what you find
+has a use even when the larder is full.</p>
+
+<h2>The five</h2>
+<img class="hero" src="pigs.png" alt="All five pigs, rendered from the pack's own models">
+<p>The differences are not decoration. Soot smells ore more than twice as far as
+Blossom; Blossom carries the most and takes the most punishment; Ember is the one
+you ride. You pick a pig for the job, not for the colour.</p>
+<table>
+<tr><th>Name</th><th>Breed</th><th>Nose</th><th>Speed</th><th>Health</th><th>Lives in</th></tr>
+<tr><td>Nilla</td><td>Kunekune</td><td class="num">6</td><td class="num">0.26</td><td class="num">14</td><td>plains</td></tr>
+<tr><td>Bramble</td><td>Mangalitsa</td><td class="num">7</td><td class="num">0.24</td><td class="num">20</td><td>taiga</td></tr>
+<tr><td>Blossom</td><td>Large White</td><td class="num">5</td><td class="num">0.22</td><td class="num">24</td><td>plains</td></tr>
+<tr><td>Soot</td><td>Berkshire</td><td class="num">12</td><td class="num">0.25</td><td class="num">18</td><td>forest</td></tr>
+<tr><td>Ember</td><td>Tamworth</td><td class="num">8</td><td class="num">0.32</td><td class="num">16</td><td>savanna</td></tr>
+</table>
+<p>Nose is how many blocks of stone a pig can smell through. Tame any of them
+with a <b>carrot</b> — about four tries in ten per carrot.</p>
+
+<p>They are not reskins. Each body is built from its own measurements, so the
+Kunekune really is low and round and the Large White really is heavy. What makes
+a pig read as a pig at a glance is the snout, so every breed has its own.</p>
+
+<a class="cta alt" href="https://github.com/farapholch/snuffle-companions">Source on GitHub</a>
+
+<footer>
+Made by Pellzor. Sibling project to
+<a href="https://loyal.pelleops.se">Loyal Companions</a> and
+<a href="https://purrfect.pelleops.se">Purrfect Companions</a>.<br>
+Not affiliated with Mojang or Microsoft.
+</footer>
+
+</div></body></html>
