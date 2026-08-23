@@ -238,6 +238,11 @@ world.beforeEvents.playerInteractWithEntity.subscribe(ev => {
 });
 
 // ---------------------------------------------------------------------------
+// TESTKROKAR. OK-rader skrivs med console.log och fel med console.warn: i
+// ContentLog blir det [inform] respektive [warning], och innehållsgrinden i
+// snuffle-test filtrerar bort det första men faller på det andra. Kattpaketets
+// mönster, lånat hit — grinden filtrerade tidigare bort alla rader som matchade
+// "-TEST", vilket också dolde ett riktigt fel som råkade nämna ordet.
 // TESTKROKAR. Bökandet väntar på slumpen och vittringen på en ägare; testet har
 // varken tid att vänta eller en spelare att tala om för. Krokarna kör SAMMA
 // funktioner med en plats i stället, så det som provas är mekaniken och inte en
@@ -296,7 +301,8 @@ system.afterEvents.scriptEventReceive.subscribe(ev => {
               if (i?.typeId === `${NS}:tryffel`) n++;
             }
           } catch { }
-          console.warn(n ? "BOK-TEST OK" : "BOK-TEST: ingen tryffel på marken");
+          if (n) console.log("BOK-TEST OK");
+          else console.warn("BOK-TEST: ingen tryffel på marken");
         }, 20);
       }, 2);
     }, 5);
@@ -316,9 +322,8 @@ system.afterEvents.scriptEventReceive.subscribe(ev => {
       if (!fynd) { console.warn("VITTRING-TEST: hittade ingen malm"); return; }
       const namn = MALM[fynd.i];
       const ost = Math.abs(fynd.dx) > Math.abs(fynd.dz) && fynd.dx > 0;
-      console.warn(namn === "minecraft:diamond_ore" && ost
-        ? "VITTRING-TEST OK"
-        : `VITTRING-TEST: fel fynd (${namn}, dx=${fynd.dx} dz=${fynd.dz})`);
+      if (namn === "minecraft:diamond_ore" && ost) console.log("VITTRING-TEST OK");
+      else console.warn(`VITTRING-TEST: fel fynd (${namn}, dx=${fynd.dx} dz=${fynd.dz})`);
     }, 5);
     return;
   }
@@ -329,8 +334,8 @@ system.afterEvents.scriptEventReceive.subscribe(ev => {
     // statisk lista underkände giltiga block och godkände felstavade. Ett
     // felstavat id i BOKBAR gör att grisen aldrig bökar där, tyst.
     const okanda = [...BOKBAR, ...MALM].filter(id => !BlockTypes.get(id));
-    console.warn(okanda.length ? "ID-TEST: okända block " + okanda.join(", ")
-                               : `ID-TEST OK (${BOKBAR.length + MALM.length} block)`);
+    if (okanda.length) console.warn("ID-TEST: okända block " + okanda.join(", "));
+    else console.log(`ID-TEST OK (${BOKBAR.length + MALM.length} block)`);
     return;
   }
 
@@ -339,7 +344,7 @@ system.afterEvents.scriptEventReceive.subscribe(ev => {
     // id i spawnItem kastar; ett oregistrerat föremål gör det också.
     try {
       gris.dimension.spawnItem(new ItemStack(`${NS}:tryffel`, 1), gris.location);
-      console.warn("FOREMAL-TEST OK");
+      console.log("FOREMAL-TEST OK");
     } catch (e) { console.warn("FOREMAL-TEST: " + e); }
   }
 });

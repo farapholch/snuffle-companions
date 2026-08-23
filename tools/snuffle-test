@@ -434,14 +434,15 @@ CL=$(find "$SRV" -name "ContentLog*" 2>/dev/null | head -1)
 [ "$FOREMAL" -ge 1 ] && ok "tryffeln är ett registrerat föremål" || bad "tryffeln gick inte att skapa"
 [ "$IDS" -ge 1 ] && ok "alla block i bökbarlistan och malmlistan finns i motorn" || bad "okända block-id (se ID-TEST i $LOG)"
 [ "$HARD" -eq 0 ] && ok "inga syntax-/komponentfel" || bad "$HARD allvarliga fel (se $LOG)"
-# TESTETS EGNA KVITTON ÄR INTE INNEHÅLLSFEL. Krokarna skriver med console.warn,
-# som hamnar i ContentLog som [Scripting][warning] — och grinden underkände
-# alltså en helt grön körning på sina egna utskrifter. De filtreras bort på
-# "-TEST"; varje sådan rad har redan en egen rad i sammanställningen ovan, så
-# ingenting göms undan. Allt ANNAT från spelet räknas fortfarande som fel.
+# TESTETS EGNA KVITTON ÄR INTE INNEHÅLLSFEL — men bara de som GICK BRA.
+# Krokarna skriver OK-rader med console.log ([Scripting][inform]) och fel med
+# console.warn ([Scripting][warning]), så grinden kan filtrera bort det ena och
+# falla på det andra. Första versionen filtrerade i stället bort allt som
+# matchade "-TEST", och dolde därmed också ett RIKTIGT fel som råkade nämna
+# ordet. Mönstret är lånat från purrfect-test.
 CLREST=""
 [ -n "$CL" ] && CLREST=$(grep -v '^[[:space:]]*$' "$CL" \
-  | grep -v '\[Scripting\]\[inform\]' | grep -v '\[Scripting\]\[warning\].*-TEST' || true)
+  | grep -v '\[Scripting\]\[inform\]' || true)
 if [ -n "$CLREST" ]; then
   bad "innehållsfel i $(basename "$CL")"; echo "$CLREST" | head -8 | sed 's/^/     /'
 else ok "inga innehållsfel"; fi
