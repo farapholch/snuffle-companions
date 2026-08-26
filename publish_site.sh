@@ -33,6 +33,34 @@ done
 # gammal fil som fortfarande går att hämta är värre än ingen fil alls.
 find "$DEST" -maxdepth 1 -name "*.mcaddon" -printf "   tar bort %f\n" -delete
 
+# NEDLADDNINGSKNAPPEN. Den publika CurseForge-adressen går inte att härleda:
+# nya projekt måste godkännas innan sidan finns, och sluggen är inte
+# projektnamnet — hundpaketets blev "loyal-companions-dogs". Ligger sluggen i
+# .curseforge-slug blir det en riktig knapp, annars står rutan kvar som säger att
+# filen väntar på godkännande. Att lägga in länken är alltså
+#   echo <slug> > .curseforge-slug && ./publish_site.sh
+# i stället för en handredigering i HTML, som det blev för hundpaketet.
+SLUGFIL="$SRC/.curseforge-slug"
+if [ -s "$SLUGFIL" ]; then
+  SLUG=$(tr -d '[:space:]' < "$SLUGFIL")
+  NED="<a class=\"cta\" href=\"https://www.curseforge.com/minecraft-bedrock/addons/$SLUG\">Get it on CurseForge</a>
+<p class=\"cap\">Version __VERSION__ — free. Open the .mcaddon and Minecraft installs it.</p>"
+  echo "   nedladdningsknapp: $SLUG"
+else
+  NED="<div class=\"soon\">
+<p class=\"soonhead\">Version __VERSION__ is finished and tested</p>
+<p class=\"cap\">It is waiting to be approved on CurseForge. Nothing to download here yet.</p>
+</div>"
+  echo "   ingen .curseforge-slug än — rutan står kvar"
+fi
+NED="$NED" python3 - "$DEST/index.html" <<'PYNED'
+import os, sys
+p = sys.argv[1]
+s = open(p, encoding="utf-8").read()
+assert "__NEDLADDNING__" in s, "platshållaren __NEDLADDNING__ saknas i sidan"
+open(p, "w", encoding="utf-8").write(s.replace("__NEDLADDNING__", os.environ["NED"]))
+PYNED
+
 # Versionsnumret på sidan hängde kvar i fem releaser i kattprojektet när det
 # redigerades för hand — sidan bär en platshållare i stället, som fylls i här.
 sed -i "s/__VERSION__/$VERSION/g" "$DEST/index.html"
