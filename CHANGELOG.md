@@ -1,5 +1,14 @@
 # Ändringar
 
+## 1.0.3 — 2026-08-26
+
+Första versionen på CurseForge (projekt 1665452).
+
+Ingen ändring för en spelare: testkrokarna skiljer numera på OK och fel så att
+innehållsgrinden kan filtrera bort det ena och falla på det andra. Den gamla
+lösningen filtrerade bort allt som matchade "-TEST" och dolde därmed också ett
+riktigt fel som råkade nämna ordet. Mönstret är lånat från kattpaketet.
+
 ## 1.0.2 — 2026-08-23
 
 *(1.0.1 finns inte. En avbruten körning hann höja manifestet innan den stoppades,

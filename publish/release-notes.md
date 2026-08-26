@@ -1,6 +1,6 @@
 # Release notes
 
-## 1.0.2
+## 1.0.3
 
 Five hand-made pigs that smell ore through solid rock, root up truffles and
 carry you.
