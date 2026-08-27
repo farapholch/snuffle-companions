@@ -346,6 +346,11 @@ json.dump([{"pack_id": bp["uuid"], "version": bp["version"]}],
 json.dump([{"pack_id": rp["uuid"], "version": rp["version"]}],
           open(f"{W}/world_resource_packs.json", "w"))
 PY
+# LEVEL-NAME STÄLLS TILLBAKA EFTERÅT. Lämnades det pekande på Gristest klagade
+# purrfect-test vid nästa körning ("pekar inte på världen Kattest — rättar").
+# Ett test som stökar för ett annat test blir brus man slutar läsa.
+LEVEL_FORE=$(grep -m1 '^level-name=' "$SRV/server.properties" | cut -d= -f2-)
+trap 'sed -i "s/^level-name=.*/level-name=$LEVEL_FORE/" "$SRV/server.properties"' EXIT
 sed -i 's/^level-name=.*/level-name=Gristest/' "$SRV/server.properties"
 cd "$SRV" || exit 1
 {
@@ -453,5 +458,8 @@ if [ -n "$CLREST" ]; then
 else ok "inga innehållsfel"; fi
 
 echo
-[ $FAIL -eq 0 ] && echo "=== SNUFFLE COMPANIONS GRÖNT ===" || echo "=== FEL HITTADE (logg: $LOG) ==="
+# Även slutraden läser manifestet. Den var det TREDJE stället med namnet
+# hårdkodat och överlevde namnbytet tyst — den sa "SNUFFLE COMPANIONS GRÖNT"
+# om ett paket som heter Snuffle Pigs.
+[ $FAIL -eq 0 ] && echo "=== ${PACKNAME^^} GRÖNT ===" || echo "=== FEL HITTADE (logg: $LOG) ==="
 exit $FAIL
