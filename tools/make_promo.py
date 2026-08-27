@@ -178,8 +178,8 @@ def ordmarke(img):
             m = 0.40 + 0.34 * (1 - k)
             img[y][x] = (int(p[0] * m), int(p[1] * m), int(p[2] * m), 255)
     for dx, dy in ((-3, 0), (3, 0), (0, -3), (0, 3), (-2, -2), (2, -2), (-2, 2), (2, 2)):
-        mv.text(img, "SNUFFLE COMPANIONS", W // 2 + dx, 54 + dy, 7, (14, 18, 26, 255))
-    mv.text(img, "SNUFFLE COMPANIONS", W // 2, 54, 7, (255, 255, 255, 255))
+        mv.text(img, "SNUFFLE PIGS", W // 2 + dx, 54 + dy, 7, (14, 18, 26, 255))
+    mv.text(img, "SNUFFLE PIGS", W // 2, 54, 7, (255, 255, 255, 255))
     for dx, dy in ((-2, 0), (2, 0), (0, -2), (0, 2)):
         mv.text(img, "PIGS THAT SNIFF OUT ORE AND ROOT UP TRUFFLES",
                 W // 2 + dx, 132 + dy, 3, (14, 18, 26, 255))

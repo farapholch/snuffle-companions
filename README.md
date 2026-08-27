@@ -1,4 +1,4 @@
-# Snuffle Companions
+# Snuffle Pigs
 
 Minecraft **Bedrock**-tillägg: fem handgjorda grisar som **söker**. Systerprojekt
 till [Loyal Companions](https://loyal.pelleops.se) (hundar) och

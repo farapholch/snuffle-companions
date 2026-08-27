@@ -1,5 +1,5 @@
 #!/bin/bash
-# Testkedjan för Snuffle Companions. Samma upplägg som loyal-test: statiska
+# Testkedjan för Snuffle Pigs. Samma upplägg som loyal-test: statiska
 # spärrar som fångar det filgranskning kan fånga, och en SKARP serverkörning för
 # allt annat — ett paket som bara är JSON-validerat är inte testat.
 #
@@ -20,11 +20,12 @@ LOG=/tmp/snuffle-test.log
 # varav bara ett underhålls.
 RASER=$(ls "$SRC/SnuffleCompanions_BP/entities/"*.json | xargs -n1 basename | sed 's/\.json$//' | tr '\n' ' ')
 ANTAL=$(echo $RASER | wc -w)
+PACKNAME=$(python3 -c "import json;print(json.load(open('$SRC/SnuffleCompanions_BP/manifest.json'))['header']['name'])")
 FAIL=0
 ok(){ echo "  ✅ $1"; }
 bad(){ echo "  ❌ $1"; FAIL=1; }
 
-echo "=== Snuffle Companions-test $(date '+%F %H:%M') ==="
+echo "=== $PACKNAME-test $(date '+%F %H:%M') ==="
 echo
 echo "[1/3] JSON och bilder"
 n=0
@@ -409,7 +410,11 @@ cd "$SRV" || exit 1
 } | LD_LIBRARY_PATH=. ./bedrock_server > "$LOG" 2>&1
 pkill -9 -x bedrock_server 2>/dev/null
 
-LOADED=$(grep -c "Pack Stack.*Snuffle Companions" "$LOG")
+# Paketnamnet läses ur manifestet i stället för att stå här: hårdkodat
+# överlevde det namnbytet till Snuffle Pigs och testet hade letat efter ett
+# namn som inte längre finns — alltså rapporterat "paketet laddades INTE"
+# om en helt frisk körning.
+LOADED=$(grep -c "Pack Stack.*$PACKNAME" "$LOG")
 SUM=$(grep -c "Object successfully summoned" "$LOG")
 TAM=$(grep -c "Found entity.gris:" "$LOG")
 HARD=$(grep -ciE "Syntax error|unknown component|invalid" "$LOG")

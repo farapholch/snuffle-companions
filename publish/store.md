@@ -1,10 +1,10 @@
 # Butikspaket — CurseForge och MCPEDL
 
-Allt som behövs för att lägga upp Snuffle Companions. Ingenting här är
+Allt som behövs för att lägga upp Snuffle Pigs. Ingenting här är
 publicerat; uppladdningen sker först när du säger till.
 
 ## Namn
-Snuffle Companions
+Snuffle Pigs
 
 ## Summary (en rad)
 Five hand-made pigs that smell ore through rock, root up truffles and carry you.

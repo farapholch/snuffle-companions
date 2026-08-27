@@ -1,5 +1,13 @@
 # Release notes
 
+## 1.1.0
+
+The pack is now called **Snuffle Pigs**, the same name it has in the store. It
+was "Snuffle Companions" inside the game and "Snuffle Pigs" on the shop page,
+and one thing should not have two names.
+
+Nothing else changed: same five pigs, same noses, same saddlebags.
+
 ## 1.0.3
 
 Five hand-made pigs that smell ore through solid rock, root up truffles and

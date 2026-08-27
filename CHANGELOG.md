@@ -1,5 +1,25 @@
 # Ändringar
 
+## 1.1.0 — 2026-08-27
+
+Paketet heter **Snuffle Pigs** nu, samma namn som på CurseForge. Det hette
+"Snuffle Companions" i spelet och "Snuffle Pigs" i butiken, och en sak ska inte
+ha två namn.
+
+Bytt: manifestens namn (det spelet visar i paketlistan), hjältebildens ordmärke,
+sajtens titel och rubrik, README och butikstexten.
+
+Oförändrat med flit: mapparna heter fortfarande `SnuffleCompanions_BP` och
+`_RP`, git-repot `snuffle-companions` och domänen `snuffle.pelleops.se`. Inget
+av det syns för en spelare, och att byta dem hade rört varenda verktygssökväg
+och brutit befintliga länkar för noll vinst.
+
+Två ställen hade namnet HÅRDKODAT och hade överlevt bytet tyst:
+`.mcaddon`-filnamnet i leveranskedjan (butiken hade visat en fil med det gamla
+namnet) och testets kontroll av att paketet laddats — den hade letat efter ett
+namn som inte längre finns och rapporterat "paketet laddades INTE" om en helt
+frisk körning. Båda läser manifestet nu.
+
 ## 1.0.3 — 2026-08-26
 
 Första versionen på CurseForge (projekt 1665452).

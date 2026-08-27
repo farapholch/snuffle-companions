@@ -78,7 +78,14 @@ cp -r "$SRC/SnuffleCompanions_BP" "$SRC/SnuffleCompanions_RP" "$STAGE/"
 find "$STAGE" -name "__pycache__" -type d -prune -exec rm -rf {} + 2>/dev/null
 find "$STAGE" -name "*.pyc" -delete 2>/dev/null
 
-OUT="/tmp/snuffle-companions-v$VER.mcaddon"
+# FILNAMNET HÄRLEDS UR MANIFESTET, det skrivs inte här. Det stod hårdkodat
+# som snuffle-companions-v$VER och överlevde namnbytet till Snuffle Pigs utan
+# att någon märkte det — butiken hade visat en fil med det gamla namnet.
+SLUG=$(python3 -c "
+import json,re
+n=json.load(open('$SRC/SnuffleCompanions_BP/manifest.json'))['header']['name']
+print(re.sub(r'[^a-z0-9]+','-',n.lower()).strip('-'))")
+OUT="/tmp/$SLUG-v$VER.mcaddon"
 rm -f "$OUT"
 ( cd "$STAGE" && zip -r -q "$OUT" SnuffleCompanions_BP SnuffleCompanions_RP )
 SHA=$(sha256sum "$OUT" | cut -d' ' -f1)
@@ -142,7 +149,7 @@ full = open(f"{src}/publish/release-notes.md", encoding="utf-8").read()
 senaste = full.split("\n## ")[1] if "\n## " in full else full
 kort = "## " + senaste.split("\n## ")[0].rstrip()
 json.dump({"changelog": kort, "changelogType": "markdown",
-           "displayName": f"Snuffle Companions {ver}", "releaseType": "release"},
+           "displayName": f"Snuffle Pigs {ver}", "releaseType": "release"},
           open(ut, "w", encoding="utf-8"))
 print(f"   metadata: {len(kort)} tecken changelog")
 PYMETA
