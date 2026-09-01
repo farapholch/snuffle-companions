@@ -40,7 +40,8 @@ node --check "$SRC/SnuffleCompanions_BP/scripts/main.js" 2>&1 | sed 's/^/  /' ||
 echo
 echo "[2/3] Struktur"
 STRUKT=$(python3 - "$SRC" <<'PY'
-import json, glob, os, re, struct, sys
+import json, glob, math, os, re, struct, sys
+from collections import Counter
 SRC = sys.argv[1]; bad = []
 NS = "gris"
 BP, RP = f"{SRC}/SnuffleCompanions_BP", f"{SRC}/SnuffleCompanions_RP"
@@ -104,6 +105,81 @@ for f in sorted(glob.glob(f"{RP}/entity/*.json")):
     ident = d["identifier"]
     if not os.path.exists(f"{BP}/entities/{ident.split(':')[1]}.json"):
         bad.append(f"{namn}: ingen beteendeentitet")
+# ANSIKTET. Tre buggar levde samtidigt i tre versioner utan att någon spärr sa
+# ett ord, för alla tre gav en fil som var giltig i varje annat avseende:
+#   * Blossoms ögon var 1x1 på familjens största huvud (9 texlar) och låg nere
+#     vid trynet — spelaren rapporterade "Blossom har inga ögon", och hade rätt.
+#   * Ember och Nilla saknade näsborrar HELT: trynets yta börjar på en halv
+#     texel och round() lade prickarna på grannytan i stället.
+#   * Soots näsborrar var nästan svarta på ett nästan svart tryne.
+# Spärren mäter därför det ÖGAT ser: finns detaljen, syns den, och sitter den
+# på rätt plats i förhållande till nosen.
+sys.path.insert(0, "/opt/purrfect-companions")
+import render_regression as rr
+
+def _skil(a, b):
+    return max(abs(a[i] - b[i]) for i in range(3))
+
+for f in sorted(glob.glob(f"{RP}/entity/*.json")):
+    d = json.load(open(f))["minecraft:client_entity"]["description"]
+    ras = d["identifier"].split(":")[1]
+    geo = PER_GEO.get(d["geometry"]["default"])
+    if not geo: continue
+    huvud = [b for b in geo["bones"] if b["name"] == "head"]
+    if not huvud:
+        bad.append(f"{ras}: geometrin saknar huvudben"); continue
+    kuber = huvud[0]["cubes"]
+    skalle = max(kuber, key=lambda c: c["size"][0] * c["size"][1])
+    skivor = [c for c in kuber if c["size"][2] <= 0.6]
+    if len(skivor) != 1:
+        bad.append(f"{ras}: förväntade exakt en trynskiva, hittade {len(skivor)}"); continue
+    skiva = skivor[0]
+    _w, _h, px = rr.read_png(f"{RP}/{d['textures']['default']}.png")
+
+    def yta(kub):
+        u, v = kub["uv"]; b_, h_, dd = kub["size"]
+        fx, fy, fw, fh = rr.faces(u, v, b_, h_, dd)["north"]
+        ax, ay = math.ceil(fx - 1e-6), math.ceil(fy - 1e-6)
+        bx, by = math.floor(fx + fw + 1e-6), math.floor(fy + fh + 1e-6)
+        return fy, [(x, y, tuple(px[y][x][:3]))
+                    for y in range(ay, by) for x in range(ax, bx)]
+
+    # ÖGONEN: pixlar som avviker tydligt från pälsen på skallens framsida.
+    fy_sk, punkter = yta(skalle)
+    pals = Counter(c for _x, _y, c in punkter).most_common(1)[0][0]
+    ogon = [(x, y, c) for x, y, c in punkter if _skil(c, pals) >= 60]
+    if len(ogon) < 2:
+        bad.append(f"{ras}: ansiktet har {len(ogon)} pixlar som avviker från pälsen "
+                   f"— ögonen syns inte")
+    else:
+        # STORLEKEN SKA FÖLJA HUVUDET. Ett 1x1-öga på ett 9 texlar brett huvud
+        # är exakt det Blossom hade.
+        bredd = skalle["size"][0]
+        rad = Counter(y for _x, y, _c in ogon).most_common(1)[0][0]
+        pa_raden = len([1 for _x, y, _c in ogon if y == rad])
+        if bredd >= 8 and pa_raden < 4:
+            bad.append(f"{ras}: huvudet är {bredd} brett men ögonen är bara "
+                       f"{pa_raden // 2} texel breda")
+        # ÖGONEN OVANFÖR NOSEN. Räknas i modellenheter, inte i texelrader, så
+        # måttet betyder samma sak för alla fem kropparna.
+        oy, oh = skalle["origin"][1], skalle["size"][1]
+        oga_underkant = oy + oh - (rad + 1 - fy_sk)
+        skiv_topp = skiva["origin"][1] + skiva["size"][1]
+        if oga_underkant < skiv_topp:
+            bad.append(f"{ras}: ögonen ({oga_underkant:.2f}) sitter inte över "
+                       f"trynskivans överkant ({skiv_topp:.2f})")
+
+    # NÄSBORRARNA: exakt två, på samma rad, med glapp emellan, och synliga.
+    _fy, punkter = yta(skiva)
+    grund = Counter(c for _x, _y, c in punkter).most_common(1)[0][0]
+    nos = [(x, y, c) for x, y, c in punkter if _skil(c, grund) >= 60]
+    if len(nos) != 2:
+        bad.append(f"{ras}: trynskivan har {len(nos)} näsborrar, ska ha 2")
+    elif nos[0][1] != nos[1][1]:
+        bad.append(f"{ras}: näsborrarna sitter på olika rader")
+    elif abs(nos[0][0] - nos[1][0]) < 2:
+        bad.append(f"{ras}: näsborrarna sitter ihop till ett streck")
+
 # ITEM_TEXTURE MÅSTE PEKA PÅ FILER SOM FINNS. En saknad PNG ger ett rosa-svart
 # rutmönster i handen, inte ett felmeddelande.
 for nyckel, v in itex.items():

@@ -68,6 +68,17 @@ def kroppsdelar(bh=6, kl=16, kb=10, kh=8, hs=8, tl=3, oron="upp", ludd=False):
         # TRYNET STICKER RAKT UT och är trubbigt avskuret. Första försöket
         # smalnade av det som en hundnos och grisen såg ut som en rosa varg.
         ("tryne", "head", None, [-tb / 2, hy + hh * 0.15, hz - tl], [tb, th_, tl]),
+        # TRYNSKIVAN. En avlång låda är ingen grisnos. Tamworthens tryne är
+        # 4,5 enheter långt och blev en TUB som stack rakt fram — från sidan
+        # läste grisen som en myrslok, och det var precis vad spelaren sa.
+        #
+        # En gris känns igen på att nosen slutar i en PLATT SKIVA som är
+        # bredare och högre än nosryggen. Skivan sitter längst fram, är en halv
+        # enhet tjock och sticker ut en tiondel så den inte flimrar mot trynets
+        # framsida (z-fighting). NÄSBORRARNA MÅLAS PÅ SKIVAN, inte på trynet —
+        # det är skivan man ser framifrån.
+        ("trynskiva", "head", None,
+         [-(tb + 1) / 2, hy + hh * 0.15 - 0.5, hz - tl - 0.4], [tb + 1, th_ + 1, 0.5]),
     ]
     if oron == "upp":
         # Uppstående öron sitter BAKÅT på skallen, inte på framkanten — en gris
@@ -261,7 +272,8 @@ def pals(rasid, delar, uv, farg):
         sidor.setdefault(roll, []).append((f, size))
         grund = UTRUSTNING.get(roll) or {"ull": farg["under"],
                                          "ora": farg["skugga"],
-                                         "tryne": farg["tryne"]}.get(roll, farg["pals"])
+                                         "tryne": farg["tryne"],
+                                         "trynskiva": farg["tryne"]}.get(roll, farg["pals"])
         for namn, (fx, fy, fw, fh) in f.items():
             rect(fx, fy, fw, fh, sh(grund, SIDSKUGGA[namn]))
 
@@ -286,34 +298,73 @@ def pals(rasid, delar, uv, farg):
             irect(fx + int(fw) - 1, fy + int(fh) - 1, 1, 1, sh(UTRUSTNING["tryffel"], 1.5))
 
     # ANSIKTET sist, så inget mönster målar över ögonen.
+    #
+    # ALLA DETALJER PLACERAS MED inre(). En yta vars kant hamnar på en halv
+    # texel (trynet börjar på y=42,5) delar sin första och sista texel med
+    # grannytan, och round() lade då detaljen på GRANNEN i stället: ember och
+    # nilla saknade näsborrar helt, och ingen hade märkt det på tre versioner
+    # eftersom ett tryne utan näsborrar fortfarande är ett rosa tryne.
+    def inre(f0, fl):
+        """Första och sista texel som ligger HELT inne i ytan, som [a, b)."""
+        a = int(math.ceil(f0 - 1e-6))
+        b = int(math.floor(f0 + fl + 1e-6))
+        return a, max(a + 1, b)
+
     for f, size in sidor["head"]:
         hs, hh = size[0], size[1]
         fx, fy, fw, fh = f["north"]
-        # ÖGONHÖJDEN ÄR UTRÄKNAD, inte prövad, och räknas UR HUVUDETS HÖJD —
-        # inte ur bredden. Huvudet är plattare än det är brett, så bredden gav
-        # ögon nere i trynet. Trynets överkant ligger på hh*0,45 räknat
-        # nerifrån, alltså rad hh*0,55 räknat uppifrån; ögonen läggs en pixel
-        # ovanför den, där en gris har dem.
-        rad = max(0, int(hh * 0.55) - 1)
+        ax, bx = inre(fx, fw)
+        ay, by = inre(fy, fh)
+        # ÖGATS STORLEK FÖLJER HUVUDET. Blossom har familjens största huvud
+        # (9 texlar brett) och hade samma 1x1-öga som kunekunens på 7 —
+        # proportionellt det minsta av alla fem. Tillsammans med att det låg
+        # nere vid trynet försvann det helt, och spelaren rapporterade en gris
+        # UTAN ÖGON. Det var en riktig bugg, inte en smaksak.
+        ob = 2 if hs >= 8 else 1
+        # ÖGONEN SITTER I ÖVRE TREDJEDELEN, räknat UR HUVUDETS HÖJD — huvudet
+        # är plattare än det är brett, så bredden gav ögon nere i trynet.
+        # Trynets överkant ligger på hh*0,55 räknat uppifrån; 0,26 lämnar en
+        # tom rad emellan så ögat inte klistrar ihop med nosen.
+        rad = min(max(ay, int(fy + fh * 0.26)), by - 3)
         ljus = sum(farg["pals"]) / 3
         kontrast = sh(farg["pals"], 0.55 if ljus > 130 else 1.7)
-        for ox in (1, int(hs) - 2):
-            irect(fx + ox, fy + rad, 1, 1, kontrast)
-            irect(fx + ox, fy + rad, 1, 1, farg["ogon"] + (255,))
-            irect(fx + ox, fy + rad + 1, 1, 1, kontrast)
-    for f, size in sidor["tryne"]:
-        # NÄSBORRARNA ÄR HELA POÄNGEN. Ett enfärgat tryne är bara en kloss;
-        # två mörka prickar gör att ansiktet omedelbart läser som en gris.
+        # GLANSEN GÖR ÖGAT SÖTT. Ett ögon som bara är en mörk fyrkant är en
+        # knapp; en ljus prick i övre hörnet läser omedelbart som en blank,
+        # levande blick — det är samma knep vanilla använder på axolotl och
+        # katt, och det är hela skillnaden mellan "djur" och "gulligt djur".
+        # Prickens färg är trynets ljusaste ton, inte rent vitt: rent vitt
+        # lyser igenom på en mörk gris och ögat ser sprucket ut.
+        glans = sh(farg["under"], 1.0)
+        for ox in (ax + 1, bx - 1 - ob):
+            irect(ox, rad, ob, 2, farg["ogon"] + (255,))
+            irect(ox, rad, 1, 1, glans)
+            irect(ox, rad + 2, ob, 1, kontrast)
+
+    # NÄSBORRARNA ÄR HELA POÄNGEN. Ett enfärgat tryne är bara en kloss; två
+    # mörka prickar gör att ansiktet omedelbart läser som en gris. De målas på
+    # SKIVAN, inte på nosryggen — det är skivan man ser framifrån.
+    for f, size in sidor["trynskiva"]:
         fx, fy, fw, fh = f["north"]
         rect(fx, fy, fw, fh, sh(farg["tryne"], 1.0))
-        mitt = fy + max(0, int(fh / 2) - 1)
-        # NÄSBORRARNA MÅSTE HA GLAPP EMELLAN SIG. Med "en pixel in från vardera
-        # kanten" hamnade de bredvid varandra på ett tryne som bara är fyra
-        # pixlar brett, och blev ETT mörkt streck — grisen såg ut att ha mustasch.
-        # Positionerna räknas därför ut från mitten med minst två pixlars glapp.
-        halv = int(fw) // 2
-        for ox in (max(0, halv - 2), min(int(fw) - 1, halv + 1)):
-            irect(fx + ox, mitt, 1, 1, (38, 24, 28, 255))
+        ax, bx = inre(fx, fw)
+        ay, by = inre(fy, fh)
+        mitt = min(max(ay, int(fy + fh * 0.45)), by - 1)
+        # NÄSBORRARNA MÅSTE HA GLAPP EMELLAN SIG. Utan glapp flyter de ihop
+        # till ETT mörkt streck och grisen ser ut att ha mustasch — eller värre,
+        # en mun. Skivan är bara fyra till sex texlar bred, så "en in från
+        # varje kant" räcker inte alltid: då används ytterkanterna i stället.
+        vanster, hoger = ax + 1, bx - 2
+        if hoger - vanster < 2:
+            vanster, hoger = ax, bx - 1
+        # NÄSBORRENS FÄRG FÖLJER TRYNET, den är inte en fast mörk ton. Berkshiren
+        # har ett nästan svart tryne (96,76,78) och en fast (38,24,28) syntes
+        # inte alls där — samma slags osynlighet som Blossoms ögon, fast åt
+        # andra hållet. Mörkt tryne får ljusa näsborrar.
+        nosborre = sh(farg["tryne"], 0.34 if sum(farg["tryne"]) / 3 > 130 else 1.9)
+        for ox in (vanster, hoger):
+            irect(ox, mitt, 1, 1, nosborre)
+
+    for f, size in sidor["tryne"]:
         tx, ty, tw_, th_ = f["top"]
         rect(tx, ty, tw_, th_, sh(farg["tryne"], 1.08))     # nosryggen ljusare
     rr.write_png(f"{RP}/textures/entity/{rasid}.png", TW, TH, px)

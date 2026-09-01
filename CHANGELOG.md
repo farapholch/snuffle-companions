@@ -1,5 +1,37 @@
 # Ändringar
 
+## 1.3.0 — 2026-09-01
+
+**Grisarna har fått ansikten.** Tre fel levde samtidigt utan att någon spärr sa
+ett ord, för varje fil var giltig i alla andra avseenden:
+
+* **Blossom hade inga ögon.** Familjens största huvud (9 texlar brett) hade
+  samma 1x1-öga som kunekunens på 7 — proportionellt det minsta av alla fem —
+  och det låg dessutom nere vid trynet där det försvann i skuggan. Det var en
+  spelare som rapporterade det, inte ett test.
+* **Ember och Nilla saknade näsborrar helt.** Trynets yta börjar på en halv
+  texel, och avrundningen la prickarna på grannytan i stället. Ett tryne utan
+  näsborrar är fortfarande ett rosa tryne, så ingen hade märkt det.
+* **Soots näsborrar var nästan svarta på ett nästan svart tryne.** Samma sorts
+  osynlighet som Blossoms ögon, fast åt andra hållet.
+
+Ögonen skalar nu med huvudet, sitter i övre tredjedelen och har **en ljus glans
+i övre hörnet** — samma knep som vanilla använder på katt och axolotl, och hela
+skillnaden mellan "djur" och "gulligt djur". Näsborrarnas färg följer trynet, så
+de syns på både en rosa lantras och en svart berkshire.
+
+**Trynet slutar i en skiva.** Tamworthens tryne är 4,5 enheter långt och var en
+avlång låda — från sidan läste grisen som en myrslok, inte som en gris. En gris
+känns igen på att nosen slutar i en platt skiva som är bredare än nosryggen, och
+det är precis vad den gör nu. Alla fem raserna har den; på Ember gör den mest
+skillnad.
+
+**Fyra nya spärrar**, alla provade i `snuffle-falsifiera`: ögonen måste avvika
+från pälsen, de måste skala med huvudet, de måste sitta ovanför trynskivan, och
+skivan måste ha två skilda näsborrar. Detaljer placeras nu bara på texlar som
+ligger *helt* inne i sin egen yta — det var den avrundningen som tog Embers och
+Nillas näsborrar.
+
 ## 1.2.0 — 2026-09-01
 
 **Grisarna vältrar sig.** En gris som hittar lera lägger sig i den och går

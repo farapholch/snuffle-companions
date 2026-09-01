@@ -59,7 +59,9 @@ def rita(geoid, texnamn, W, H, yaw=34, pitch=14, pose=POSE, visa=(),
            for b in geo["bones"] if b["name"] not in dolda]
     # RAMEN ÄR GRISENS, inte hundens. Med hundpaketets ram (±9 i x, ±13 i z)
     # skars lantrasens tryne och bakdel av — en gris är bredare och längre.
-    hörn = [cam((x, y, z)) for x in (-11, 11) for y in (0, 22) for z in (-16, 12)]
+    # Framkanten flyttades från -16 till -19 när trynskivan kom: tamworthens
+    # nos når -18,3 och skivan hade annars hamnat utanför bilden.
+    hörn = [cam((x, y, z)) for x in (-11, 11) for y in (0, 22) for z in (-19, 12)]
     minx, maxx = min(c[0] for c in hörn), max(c[0] for c in hörn)
     miny, maxy = min(c[1] for c in hörn), max(c[1] for c in hörn)
     pad = int(min(W, H) * 0.05)

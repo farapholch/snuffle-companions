@@ -62,6 +62,42 @@ def jsonfix(sokvag, f):
     d = json.load(open(sokvag)); f(d); json.dump(d, open(sokvag, "w"), indent=2)
 
 
+# ANSIKTSPROVEN MÅSTE MÅLA I TEXTUREN. Ansiktsspärren läser PNG-pixlar, inte
+# JSON, så ett prov som bara ändrar en fil kan aldrig få den att falla — och en
+# spärr som ingen kan fälla är inte bevisad.
+sys.path.insert(0, "/opt/purrfect-companions")
+import render_regression as rr
+
+
+def _framsidan(ras, valj):
+    """Skallens eller trynskivans framsida i en ras textur, som (px, rect)."""
+    geos = json.load(open(f"{RP}/models/entity/gris.geo.json"))["minecraft:geometry"]
+    d = json.load(open(f"{RP}/entity/{ras}.json"))["minecraft:client_entity"]["description"]
+    geo = next(g for g in geos if g["description"]["identifier"] == d["geometry"]["default"])
+    kuber = next(b for b in geo["bones"] if b["name"] == "head")["cubes"]
+    kub = valj(kuber)
+    u, v = kub["uv"]; b_, h_, dd = kub["size"]
+    w, h, px = rr.read_png(f"{RP}/{d['textures']['default']}.png")
+    return (w, h, px), f"{RP}/{d['textures']['default']}.png", rr.faces(u, v, b_, h_, dd)["north"]
+
+
+SKALLE = lambda k: max(k, key=lambda c: c["size"][0] * c["size"][1])
+SKIVA = lambda k: min(k, key=lambda c: c["size"][2])
+
+
+def mala_over(ras, valj, kolumner=None):
+    """Målar framsidan enfärgad — hela ytan, eller bara vissa kolumner."""
+    (w, h, px), fil, (fx, fy, fw, fh) = _framsidan(ras, valj)
+    ax, ay = int(fx + 0.999), int(fy + 0.999)
+    bx, by = int(fx + fw + 1e-6), int(fy + fh + 1e-6)
+    grund = px[ay][ax]
+    for y in range(ay, by):
+        for x in range(ax, bx):
+            if kolumner is None or (x - ax) in kolumner:
+                px[y][x] = grund
+    rr.write_png(fil, w, h, px)
+
+
 PROV = [
     ("ridning utan styrning",
      lambda: jsonfix(f"{BP}/entities/soot.json", lambda d: d["minecraft:entity"]
@@ -101,6 +137,25 @@ PROV = [
                      lambda d: d["minecraft:geometry"][0]["description"].update(
                          texture_width=64, texture_height=64)),
      "texturstorlek"),
+    ("ögonen bortmålade",
+     lambda: mala_over("blossom", SKALLE),
+     "ögonen syns inte"),
+    ("ögat krympt till en texel på familjens största huvud",
+     lambda: mala_over("blossom", SKALLE, kolumner={2, 7}),
+     "texel breda"),
+    ("näsborrarna bortmålade",
+     lambda: mala_over("ember", SKIVA),
+     "0 näsborrar"),
+    ("trynskivan borttagen ur geometrin",
+     lambda: jsonfix(f"{RP}/models/entity/gris.geo.json",
+                     lambda d: [b for g in d["minecraft:geometry"]
+                                for b in g["bones"] if b["name"] == "head"][0]["cubes"].pop(
+                         min(range(len([b for g in d["minecraft:geometry"]
+                                        for b in g["bones"] if b["name"] == "head"][0]["cubes"])),
+                             key=lambda i: [b for g in d["minecraft:geometry"]
+                                            for b in g["bones"]
+                                            if b["name"] == "head"][0]["cubes"][i]["size"][2]))),
+     "förväntade exakt en trynskiva"),
     ("två beteenden med samma prioritet",
      lambda: jsonfix(f"{BP}/entities/soot.json", lambda d: d["minecraft:entity"]
                      ["component_groups"]["gris:bokar"]
