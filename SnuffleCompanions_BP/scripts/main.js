@@ -190,7 +190,16 @@ function vittra(gris, tillst, radie) {
 // betyder det varannan sekund var, med tjugo betyder det var tjugonde.
 let ko = 0;
 
+// TICKBUDGETEN. Paketet har EN loop, men den gör en O(n²)-fri men ändå inte
+// gratis genomgång av alla grisar varje halvsekund, och malmsökningen läser
+// hundratals block. Ingen har mätt vad den kostar med en full svinstia.
+// Kostnaden för mätningen är ett Date.now() per varv — försumbart mot det den
+// mäter, och det enda som kan svara på om nästa funktion får plats.
+const matning = { varv: 0, ms: 0 };
+
 system.runInterval(() => {
+  const _t0 = Date.now();
+  try {
   varv++;
   const bokande = [];
   for (const dim of DIMENSIONER) {
@@ -215,6 +224,9 @@ system.runInterval(() => {
     const [gris, tillst] = bokande[ko++ % bokande.length];
     const radie = RASER[gris.typeId]?.nos ?? 6;
     vittra(gris, tillst, radie);
+  }
+  } finally {
+    matning.varv++; matning.ms += Date.now() - _t0;
   }
 }, LOOP);
 
@@ -346,5 +358,77 @@ system.afterEvents.scriptEventReceive.subscribe(ev => {
       gris.dimension.spawnItem(new ItemStack(`${NS}:tryffel`, 1), gris.location);
       console.log("FOREMAL-TEST OK");
     } catch (e) { console.warn("FOREMAL-TEST: " + e); }
+  }
+});
+
+// ---------------------------------------------------------------------------
+// UTHÅLLIGHETSKROKAR. Det som bara syns över TID och SKALA: att tillståndet
+// överlever en världsomstart, och vad loopen kostar med många grisar. Ingen av
+// delarna går att prova i snuffle-test, som river världen vid varje körning.
+const UTHALL = "Uthall";
+
+function uthallGris() {
+  for (const dim of DIMENSIONER) {
+    try {
+      for (const g of grisar(dim)) if (g.nameTag === UTHALL) return g;
+    } catch { }
+  }
+  return null;
+}
+
+// Det som PÅSTÅS överleva en omstart: tämjning, läge, sadel, väskor och lasten.
+const UTHALL_TILLSTAND = [["gris:tam", 1], ["gris:lage", 1],
+                          ["gris:sadlad", 1], ["gris:vaskor", 1]];
+
+system.afterEvents.scriptEventReceive.subscribe(ev => {
+  if (ev.id === `${NS}:test_last`) {
+    let n = 0;
+    for (const d of DIMENSIONER) { try { n += grisar(d).length; } catch { } }
+    const snitt = matning.varv ? matning.ms / matning.varv : 0;
+    console.log(`[gris] LAST-TEST: ${n} grisar, ${matning.varv} varv, `
+      + `${snitt.toFixed(2)} ms per varv (budget 50 ms/tick)`);
+    matning.varv = 0; matning.ms = 0;
+    return;
+  }
+
+  if (ev.id === `${NS}:test_satt`) {
+    const g = uthallGris();
+    if (!g) { console.warn("[gris] SPARA-TEST FEL: hittar inte " + UTHALL); return; }
+    try {
+      g.triggerEvent(`${NS}:nasta_lage`);      // följer -> bökar
+      g.triggerEvent(`${NS}:sadla`);
+      g.triggerEvent(`${NS}:vaskor_pa`);
+    } catch (e) { console.warn("[gris] SPARA-TEST FEL: " + e); return; }
+    // Lastrummet finns först nästa tick: väskorna skapar containern via en
+    // komponentgrupp, och gruppen finns inte förrän eventet landat.
+    system.runTimeout(() => {
+      let last = "ingen";
+      try {
+        const box = g.getComponent("minecraft:inventory")?.container;
+        if (box) { box.setItem(0, new ItemStack("minecraft:diamond", 3)); last = "diamant x3"; }
+      } catch (e) { console.warn("[gris] SPARA-TEST FEL vid last: " + e); }
+      const satta = UTHALL_TILLSTAND.map(([n]) => `${n}=${prop(g, n, "?")}`);
+      console.log(`[gris] SPARA-TEST: ${satta.join(" ")} last=${last}`);
+    }, 10);
+    return;
+  }
+
+  if (ev.id === `${NS}:test_las`) {
+    const g = uthallGris();
+    if (!g) { console.warn("[gris] LAS-TEST FEL: grisen överlevde inte omstarten"); return; }
+    const fel = [];
+    for (const [namn, vantat] of UTHALL_TILLSTAND) {
+      const nu = prop(g, namn, null);
+      if (nu !== vantat) fel.push(`${namn}=${nu} (väntade ${vantat})`);
+    }
+    let diamanter = 0;
+    try {
+      const s2 = g.getComponent("minecraft:inventory")?.container?.getItem(0);
+      if (s2?.typeId === "minecraft:diamond") diamanter = s2.amount;
+    } catch { }
+    if (diamanter !== 3) fel.push(`väskornas last=${diamanter} (väntade 3)`);
+    if (fel.length) console.warn("[gris] LAS-TEST FEL: " + fel.join(", "));
+    else console.log(`[gris] LAS-TEST OK: ${UTHALL_TILLSTAND.length} egenskaper och `
+      + `sadelväskornas last överlevde omstarten`);
   }
 });

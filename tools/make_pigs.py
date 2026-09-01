@@ -549,7 +549,13 @@ def entitet(rasid, skala, nos, fart, liv):
             "components": {
                 "minecraft:type_family": {"family": ["sc_gris", "mob"]},
                 "minecraft:health": {"value": liv, "max": liv},
-                "minecraft:collision_box": {"width": 0.9, "height": 0.9},
+                # TRÄFFYTAN FÖLJER STORLEKEN. Den var 0,9 för alla fem trots skala
+                # 0,85-1,1, så en kunekune var lika bred att gå in i som en
+                # lantras. minecraft:scale skalar MODELLEN, inte kollisionslådan
+                # — samma fel fanns i hund- och kattpaketet och rättades där i
+                # augusti; grisarna var de sista kvar.
+                "minecraft:collision_box": {"width": round(0.9 * skala, 2),
+                                            "height": round(0.9 * skala, 2)},
                 "minecraft:physics": {},
                 "minecraft:pushable": {"is_pushable": True},
                 "minecraft:movement": {"value": fart},

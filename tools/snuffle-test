@@ -388,6 +388,13 @@ cd "$SRV" || exit 1
   echo "testfor @e[name=Sadeltest,has_property={gris:sadlad=1}]"; sleep 1
   echo "event entity @e[name=Sadeltest] gris:vaskor_pa"; sleep 1
   echo "testfor @e[name=Sadeltest,has_property={gris:vaskor=1}]"; sleep 1
+  # SADELVÄSKORNAS FÖRVARING. Testet har hittills bara kontrollerat att
+  # egenskapen gris:vaskor sätts — alltså att knappen tryckts — men aldrig att
+  # de femton facken HÅLLER något. Butikssidan lovar sadelväskor; ingenting har
+  # visat att de bär. replaceitem mot slot.inventory lyckas bara om entiteten
+  # faktiskt har en container, och är enda sättet att bevisa det härifrån.
+  echo "replaceitem entity @e[name=Sadeltest] slot.inventory 0 diamond 3"; sleep 1
+  echo "replaceitem entity @e[name=Sadeltest] slot.inventory 14 emerald 1"; sleep 1
   echo "kill @e[name=Sadeltest]"; sleep 1
   # KULTINGEN. Parningen själv kräver två grisar i kärlekshumör och en spelare
   # med foder, men det parningen SLUTAR med — gris:fodd på ungen — går att prova
@@ -425,6 +432,9 @@ TAM=$(grep -c "Found entity.gris:" "$LOG")
 HARD=$(grep -ciE "Syntax error|unknown component|invalid" "$LOG")
 LAGE=$(grep -c "Found Lagetest" "$LOG")
 SADEL=$(grep -c "Found Sadeltest" "$LOG")
+# "Replaced slot" skrivs bara när lastrummet fanns; med en entitet utan
+# container blir det i stället ett fel.
+LAST=$(grep -ci "Replaced slot" "$LOG")
 KULT=$(grep -c "Found Kultingtest" "$LOG")
 NOSLAGE=$(grep -c "Found Nostest" "$LOG")
 BOK=$(grep -c "BOK-TEST OK" "$LOG")
@@ -437,6 +447,7 @@ CL=$(find "$SRV" -name "ContentLog*" 2>/dev/null | head -1)
 [ "$TAM" -ge "$ANTAL" ] && ok "tämjningen sätter gris:tam ($TAM/$ANTAL, has_property)" || bad "bara $TAM/$ANTAL blev tämjda"
 [ "$LAGE" -ge 4 ] && ok "lägena växlar: följer -> bökar -> stannar -> följer ($LAGE/4)" || bad "lägesväxlingen gav $LAGE/4"
 [ "$SADEL" -ge 2 ] && ok "sadel och sadelväskor sätts ($SADEL/2)" || bad "sadelkedjan gav $SADEL/2"
+[ "$LAST" -ge 2 ] && ok "sadelväskorna har ett riktigt lastrum ($LAST/2 replaceitem i slot.inventory)" || bad "sadelväskorna bar ingenting ($LAST/2) — minecraft:inventory gav ingen container"
 [ "$KULT" -ge 2 ] && ok "kultingen föds tämjd och växer upp ($KULT/2)" || bad "kultingkedjan gav $KULT/2"
 [ "$NOSLAGE" -ge 1 ] && ok "bökläget går att slå på" || bad "bökläget slogs inte på"
 [ "$BOK" -ge 1 ] && ok "bökandet: grisen gräver upp en tryffel som hamnar på marken" || bad "bökandet gav ingen tryffel (se BOK-TEST i $LOG)"
