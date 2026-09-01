@@ -37,6 +37,9 @@ Blossom bär mest och tål mest — man väljer gris efter uppgift, inte efter f
   koordinater: den säger vart man ska gräva och låter dig göra resten.
 - **Sadla** med en sadel, så går den att rida med full styrning. **Sadelväskor**
   med en kista.
+- **Vältra sig.** En gris som hittar lera lägger sig i den och går omkring
+  lerig på magen och benen ett tag efteråt. Vatten tvättar av. Det gör
+  ingenting nyttigt — det är bara vad grisar gör.
 - **Föd upp** med tryffel, potatis eller rödbeta. Kultingen föds redan din.
 
 Tryffeln går att äta och är det bästa avelsfodret — det man hittar har en

@@ -102,6 +102,23 @@ def kroppsdelar(bh=6, kl=16, kb=10, kh=8, hs=8, tl=3, oron="upp", ludd=False):
     # sadeln så ryttarens ben inte går igenom dem.
     for x in (-kb / 2 - 2.5, kb / 2 - 0.5):
         d.append(("vaska", "vaskor", "body", [x, bh + kh - 6, kl / 2 - 8], [3, 5, 6]))
+    # LERAN. En gris VÄLTRAR SIG — det är det mest ikoniska djuret gör, och
+    # ingenting i paketet gjorde det.
+    #
+    # LERAN SITTER UNDERTILL, inte på ryggen. Första försöket la ett lager över
+    # ryggen och det läste som en SADEL, inte som lera — vilket är helt logiskt:
+    # en gris som vältrat sig har LEGAT i geggan, så det är magen, sidorna
+    # nedtill och benen som blir smutsiga.
+    #
+    # ÖVERLAPPAR med en tiondel så ytorna inte flimrar mot varandra
+    # (z-fighting); två ytor på exakt samma plats blinkar.
+    d.append(("lera", "lera", "body", [-kb / 2 - 0.1, bh - 0.1, -kl / 2 + 0.4],
+              [kb + 0.2, kh * 0.5, kl - 0.8]))
+    # ...och stänk på benen. De hänger i VARJE bens eget ben, annars blir leran
+    # stående still medan grisen går.
+    for i, (x, z) in enumerate([(-kb / 2 + 0.4, -kl / 2 + 0.4), (kb / 2 - 4.4, -kl / 2 + 0.4),
+                                (-kb / 2 + 0.4, kl / 2 - 4.6), (kb / 2 - 4.4, kl / 2 - 4.6)]):
+        d.append(("lera", "lera", f"leg{i}", [x, -0.1, z], [4.2, bh * 0.55, 4.2]))
     # TRYFFELN I TRYNET: syns när grisen just bökat upp något och ännu inte
     # släppt det. Hängd i huvudbenet så den följer med när grisen tittar upp.
     d.append(("tryffel", "tryffel", "head", [-1.25, hy + hh * 0.15 - 2.75, hz - tl + 0.5],
@@ -116,6 +133,7 @@ PIVOT = lambda bh, kl, kb, kh, hs: {
     "leg2": [-kb / 2 + 2.5, bh, kl / 2 - 2.5], "leg3": [kb / 2 - 2.5, bh, kl / 2 - 2.5],
     "tail": [0, bh + kh - 2, kl / 2],
     "sadel": [0, bh + kh, 0], "vaskor": [0, bh + kh - 4, kl / 2 - 5],
+    "lera": [0, bh + kh / 2, 0],
     "tryffel": [0, bh + kh - hs * 0.5, -kl / 2],
 }
 
@@ -196,7 +214,8 @@ def renderarkontroller():
                 {"*": True},
                 {"sadel": f"q.property('{NS}:sadlad') == 1"},
                 {"vaskor": f"q.property('{NS}:vaskor') == 1"},
-                {"tryffel": f"q.property('{NS}:bar') == 1"}]}}},
+                {"tryffel": f"q.property('{NS}:bar') == 1"},
+                {"lera": f"q.property('{NS}:lerig') == 1"}]}}},
         open(f"{RP}/render_controllers/gris.render_controllers.json", "w"), indent=2)
 
 
@@ -211,7 +230,9 @@ SIDSKUGGA = {"top": 1.14, "bottom": 0.72, "north": 1.0, "south": 0.92,
 # Sadel, väskor och tryffel har föremålens färger, inte grisens.
 # Tryffeln var (52,40,34) och blev en svart klump under trynet som läste som en
 # öppen mun. Ljusare och varmare, så den syns som ett FÖREMÅL grisen bär.
-UTRUSTNING = {"sadel": (118, 74, 42), "vaska": (96, 62, 38), "tryffel": (84, 62, 48)}
+UTRUSTNING = {"sadel": (118, 74, 42), "vaska": (96, 62, 38), "tryffel": (84, 62, 48),
+              # Blöt lera: mörkare och gråare än trä, annars läser den som sadel.
+              "lera": (86, 68, 52)}
 
 
 def pals(rasid, delar, uv, farg):
@@ -544,6 +565,11 @@ def entitet(rasid, skala, nos, fart, liv):
                                      "client_sync": True},
                     f"{NS}:bar": {"type": "int", "range": [0, 1], "default": 0,
                                   "client_sync": True},
+                    # lerig: syns som ett lager på ryggen. client_sync krävs —
+                    # renderarkontrollern körs på KLIENTEN och kan inte läsa en
+                    # egenskap servern inte skickar.
+                    f"{NS}:lerig": {"type": "int", "range": [0, 1], "default": 0,
+                                    "client_sync": True},
                 },
             },
             "components": {
@@ -696,6 +722,8 @@ def entitet(rasid, skala, nos, fart, liv):
                                     "set_property": {f"{NS}:vaskor": 1}},
                 f"{NS}:bar_pa": {"set_property": {f"{NS}:bar": 1}},
                 f"{NS}:bar_av": {"set_property": {f"{NS}:bar": 0}},
+                f"{NS}:lerig_pa": {"set_property": {f"{NS}:lerig": 1}},
+                f"{NS}:lerig_av": {"set_property": {f"{NS}:lerig": 0}},
                 # VUXENGRUPPEN läggs på vid spawn, men INTE på en kulting: både
                 # den och kultinggruppen sätter minecraft:scale, och i
                 # hundpaketet vann fel grupp så valparna blev fullstora. Därför

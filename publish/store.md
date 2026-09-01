@@ -24,6 +24,10 @@ mycelium, moss and mud. You see the truffle in its snout for a moment before it
 drops, so you can tell where it came from. Truffles are food, and they are also
 the best breeding feed.
 
+**They wallow.** A pig that finds mud lies down in it and comes out muddy on the
+belly and legs. Water washes it off. It does nothing useful; it is simply what
+pigs do, and nothing else in the pack does it.
+
 **Riding that works.** A saddle makes a pig steer the way a horse steers, with no
 carrot on a stick involved. A chest adds saddlebags.
 

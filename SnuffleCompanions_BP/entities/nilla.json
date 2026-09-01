@@ -51,6 +51,15 @@
           ],
           "default": 0,
           "client_sync": true
+        },
+        "gris:lerig": {
+          "type": "int",
+          "range": [
+            0,
+            1
+          ],
+          "default": 0,
+          "client_sync": true
         }
       }
     },
@@ -446,6 +455,16 @@
       "gris:bar_av": {
         "set_property": {
           "gris:bar": 0
+        }
+      },
+      "gris:lerig_pa": {
+        "set_property": {
+          "gris:lerig": 1
+        }
+      },
+      "gris:lerig_av": {
+        "set_property": {
+          "gris:lerig": 0
         }
       },
       "minecraft:entity_spawned": {

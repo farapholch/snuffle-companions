@@ -212,7 +212,9 @@ def hero():
     # ska visa fem olika.
     # BAKRE RADEN FÖRST. Ritas de främre först målar de bakre över dem.
     for rasid, fx, fy, hojd, yaw, visa in (
-            ("nilla", 0.30, 0.71, 150, 44, ()),
+            # En gris med lera på magen: gyttjebadet syns bäst på en bild, och
+            # det är den enda funktionen man inte kan gissa sig till ur texten.
+            ("nilla", 0.30, 0.71, 150, 44, ("lera",)),
             ("ember", 0.735, 0.70, 172, 12, ("sadel",)),
             ("bramble", 0.885, 0.85, 196, 18, ()),
             ("blossom", 0.155, 0.90, 240, 30, ("sadel", "vaskor")),

@@ -29,6 +29,8 @@ const BOK_CHANS = 0.06;        // per gris och varv i bökläge -> ~ var 8:e sek
 const BOK_DROJ = 30;           // tick som tryffeln syns i trynet innan den faller
 const VITTRING_PAUS = 200;     // tick mellan två vittringar för samma gris
 const STEG = 2;                // rutnätets gleshet vid malmsökning
+const LERA_CHANS = 0.04;       // per gris och varv stående i lera
+const LERA_TID = 12000;        // tio minuter i tick innan den torkar av
 
 // TILLSTÅNDET PER GRIS behöver bara överleva mellan två varv i loopen. Poängen
 // är att INTE trigga samma händelse om och om igen: add/remove av en
@@ -205,9 +207,46 @@ system.runInterval(() => {
   for (const dim of DIMENSIONER) {
     for (const gris of grisar(dim)) {
       let tillst = minne.get(gris.id);
-      if (!tillst) { tillst = { slapper: 0, vittrade: 0 }; minne.set(gris.id, tillst); }
+      if (!tillst) { tillst = { slapper: 0, vittrade: 0, torkar: 0 }; minne.set(gris.id, tillst); }
 
       if (tillst.slapper && varv >= tillst.slapper) slapp(gris, tillst);
+
+      // GYTTJEBADET. En gris som står i lera lägger sig i den då och då och är
+      // lerig ett tag efteråt. Det här ligger FÖRE tämjningskontrollen med
+      // flit: en vild gris i ett träsk ska också kunna vältra sig, och det är
+      // samma blockavläsning som bökandet ändå gör.
+      // TÄRNINGEN SLÅS FÖRE BLOCKAVLÄSNINGEN. Första versionen läste marken
+      // under VARJE gris varje varv, och uthållighetsprovet mätte loopen från
+      // 0,38 till 1,02 ms med trettio grisar. Sannolikheten att vältra sig är
+      // densamma — men nu kostar den bara ett slumptal för de grisar som ändå
+      // inte skulle ha lagt sig. Redan leriga grisar måste läsa marken oavsett,
+      // för vatten ska tvätta av.
+      // LERTILLSTÅNDET CACHAS i grisens minnespost i stället för att läsas ur
+      // egenskapen varje varv. getProperty är ett inbyggt anrop, och det var
+      // DET som kostade — att slå tärningen före blockavläsningen gav nästan
+      // ingenting (1,02 -> 0,96 ms), vilket motbevisade min första gissning.
+      // Undefined vid första anblicken betyder "läs en gång": en värld som
+      // laddas in kan ha grisar som redan är leriga.
+      if (tillst.lerig === undefined) tillst.lerig = prop(gris, `${NS}:lerig`, 0) === 1;
+      const arLerig = tillst.lerig;
+      const mark = (arLerig || Math.random() < LERA_CHANS) ? markenUnder(gris) : null;
+      if (arLerig) {
+        // VATTEN TVÄTTAR AV. Utan det går grisen lerig för alltid om man badar
+        // med den, vilket ser ut som ett fel snarare än som lera.
+        const ivatten = mark?.typeId === "minecraft:water";
+        if (ivatten || (tillst.torkar && varv >= tillst.torkar)) {
+          try { gris.triggerEvent(`${NS}:lerig_av`); } catch { }
+          tillst.lerig = false; tillst.torkar = 0;
+        }
+      } else if (mark?.typeId === "minecraft:mud") {
+        try {
+          gris.triggerEvent(`${NS}:lerig_pa`);
+          gris.dimension.spawnParticle("minecraft:water_splash_particle", gris.location);
+          gris.dimension.playSound("mob.pig.step", gris.location, { volume: 0.9, pitch: 0.7 });
+        } catch { }
+        tillst.lerig = true;
+        tillst.torkar = varv + LERA_TID / LOOP;
+      }
 
       if (prop(gris, `${NS}:tam`, 0) !== 1) continue;
       if (prop(gris, `${NS}:lage`, 0) !== 1) {
@@ -270,7 +309,7 @@ function forstaGris() {
 system.afterEvents.scriptEventReceive.subscribe(ev => {
   const gris = forstaGris();
   if (!gris) { console.warn(`${ev.id}: ingen gris i världen`); return; }
-  const tillst = minne.get(gris.id) ?? { slapper: 0, vittrade: 0 };
+  const tillst = minne.get(gris.id) ?? { slapper: 0, vittrade: 0, torkar: 0 };
 
   // TESTPLATSEN ÄR FAST. Grisen strosar (random_stroll ligger i baskomponenterna
   // så att en gris i bökläge inte står stilla), och mellan att kroken la jorden
@@ -336,6 +375,27 @@ system.afterEvents.scriptEventReceive.subscribe(ev => {
       const ost = Math.abs(fynd.dx) > Math.abs(fynd.dz) && fynd.dx > 0;
       if (namn === "minecraft:diamond_ore" && ost) console.log("VITTRING-TEST OK");
       else console.warn(`VITTRING-TEST: fel fynd (${namn}, dx=${fynd.dx} dz=${fynd.dz})`);
+    }, 5);
+    return;
+  }
+
+  if (ev.id === `${NS}:test_lera`) {
+    // Leran utlöses av slumpen när grisen står i lera; testet kan inte vänta ut
+    // den. Kroken lägger lera under grisen och kör samma väg.
+    stall();
+    try { gris.dimension.getBlock({ x: 10, y: 19, z: 10 }).setType("minecraft:mud"); }
+    catch (e) { console.warn("LERA-TEST: kunde inte lägga lera: " + e); return; }
+    system.runTimeout(() => {
+      stall();
+      const m = markenUnder(gris);
+      if (m?.typeId !== "minecraft:mud") {
+        console.warn(`LERA-TEST: marken är ${m?.typeId ?? "okänd"}, inte lera`); return;
+      }
+      try { gris.triggerEvent(`${NS}:lerig_pa`); } catch (e) { console.warn("LERA-TEST: " + e); return; }
+      system.runTimeout(() => {
+        if (prop(gris, `${NS}:lerig`, 0) === 1) console.log("LERA-TEST OK");
+        else console.warn("LERA-TEST: gris:lerig sattes inte");
+      }, 3);
     }, 5);
     return;
   }

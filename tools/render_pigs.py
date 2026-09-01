@@ -30,7 +30,7 @@ POSE = {"head": (-6, 22, 0), "leg0": (24, 0, 0), "leg1": (-24, 0, 0),
         "leg2": (-20, 0, 0), "leg3": (20, 0, 0), "tail": (8, 0, 12)}
 # De valfria delarna, i renderarkontrollerns ordning. Visas de alltid går grisen
 # omkring med sadel, väskor OCH en tryffel i trynet i varje bild.
-VALFRIA = ("sadel", "vaskor", "tryffel")
+VALFRIA = ("sadel", "vaskor", "tryffel", "lera")
 
 
 def rasklient():

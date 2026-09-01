@@ -414,6 +414,10 @@ cd "$SRV" || exit 1
   echo "testfor @e[name=Nostest,has_property={gris:lage=1}]"; sleep 1
   echo "scriptevent gris:test_bok kor"; sleep 5
   echo "scriptevent gris:test_vittring kor"; sleep 4
+  echo "scriptevent gris:test_lera kor"; sleep 4
+  # ...och att den syns utifrån: gris:lerig är client_sync, så renderaren kan
+  # läsa den — men att SERVERN satt den går att fråga om med has_property.
+  echo "testfor @e[name=Nostest,has_property={gris:lerig=1}]"; sleep 1
   echo "scriptevent gris:test_ids kor"; sleep 3
   echo "scriptevent gris:test_foremal kor"; sleep 3
   echo "kill @e[name=Nostest]"; sleep 1
@@ -441,6 +445,8 @@ BOK=$(grep -c "BOK-TEST OK" "$LOG")
 VITT=$(grep -c "VITTRING-TEST OK" "$LOG")
 FOREMAL=$(grep -c "FOREMAL-TEST OK" "$LOG")
 IDS=$(grep -c "ID-TEST OK" "$LOG")
+LERA=$(grep -c "LERA-TEST OK" "$LOG")
+LERIG=$(grep -c "Found Nostest" "$LOG")
 CL=$(find "$SRV" -name "ContentLog*" 2>/dev/null | head -1)
 [ "$LOADED" -ge 1 ] && ok "paketet laddades" || bad "paketet laddades INTE"
 [ "$SUM" -ge "$ANTAL" ] && ok "alla raser spawnar ($SUM/$ANTAL: $RASER)" || bad "bara $SUM/$ANTAL spawnade"
@@ -453,6 +459,7 @@ CL=$(find "$SRV" -name "ContentLog*" 2>/dev/null | head -1)
 [ "$BOK" -ge 1 ] && ok "bökandet: grisen gräver upp en tryffel som hamnar på marken" || bad "bökandet gav ingen tryffel (se BOK-TEST i $LOG)"
 [ "$VITT" -ge 1 ] && ok "vittringen hittar malmen OCH säger rätt väderstreck" || bad "vittringen misslyckades (se VITTRING-TEST i $LOG)"
 [ "$FOREMAL" -ge 1 ] && ok "tryffeln är ett registrerat föremål" || bad "tryffeln gick inte att skapa"
+[ "$LERA" -ge 1 ] && [ "$LERIG" -ge 1 ] && ok "gyttjebadet: grisen blir lerig i lera och det syns utifrån" || bad "gyttjebadet gav LERA=$LERA LERIG=$LERIG"
 [ "$IDS" -ge 1 ] && ok "alla block i bökbarlistan och malmlistan finns i motorn" || bad "okända block-id (se ID-TEST i $LOG)"
 [ "$HARD" -eq 0 ] && ok "inga syntax-/komponentfel" || bad "$HARD allvarliga fel (se $LOG)"
 # TESTETS EGNA KVITTON ÄR INTE INNEHÅLLSFEL — men bara de som GICK BRA.

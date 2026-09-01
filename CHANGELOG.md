@@ -1,5 +1,37 @@
 # Ändringar
 
+## 1.2.0 — 2026-09-01
+
+**Grisarna vältrar sig.** En gris som hittar lera lägger sig i den och går
+omkring lerig på magen och benen ett tag efteråt. Vatten tvättar av. Det gör
+ingenting nyttigt — det är bara vad grisar gör, och ingenting annat i paketet
+gjorde det. Även vilda grisar, för en lerig gris i ett träsk är hela poängen.
+
+Leran satt först på RYGGEN och läste som en sadel. Det var fel av en logisk
+anledning: en gris som vältrat sig har LEGAT i geggan, så det är undersidan och
+benen som blir smutsiga.
+
+**Tre saker paketet påstod men aldrig bevisat:**
+
+- **Träffytan** var 0,9 för alla fem trots skala 0,85–1,1 — en kunekune var lika
+  bred att gå in i som en lantras. `minecraft:scale` skalar modellen, inte
+  kollisionslådan. Grisarna var det sista paketet med den buggen.
+- **Sadelväskorna** var aldrig bevisade att bära. Testet kontrollerade att
+  egenskapen sattes, alltså att knappen tryckts, men aldrig att de femton facken
+  höll något — och butikssidan lovar sadelväskor. De fungerar.
+- **Uthållighetsprov** saknades helt; Snuffle var det enda paketet utan. Nu
+  bevisas att tämjning, läge, sadel, väskor och lasten överlever en
+  världsomstart.
+
+### Om att mäta i stället för att gissa
+
+Gyttjebadet tog loopen från 0,38 till 1,02 ms med trettio grisar. Min första
+gissning var att blockavläsningarna kostade, så jag slog tärningen före dem —
+det gav **0,96 ms**, alltså nästan ingenting, och motbevisade gissningen. Det
+som kostade var `getProperty`, ett inbyggt anrop per gris och varv. Med
+lertillståndet cachat i grisens minnespost landade loopen på **0,27 ms**, alltså
+snabbare än innan funktionen fanns.
+
 ## 1.1.0 — 2026-08-27
 
 Paketet heter **Snuffle Pigs** nu, samma namn som på CurseForge. Det hette

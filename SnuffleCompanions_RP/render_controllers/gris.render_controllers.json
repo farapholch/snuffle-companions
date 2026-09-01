@@ -23,6 +23,9 @@
         },
         {
           "tryffel": "q.property('gris:bar') == 1"
+        },
+        {
+          "lera": "q.property('gris:lerig') == 1"
         }
       ]
     }
