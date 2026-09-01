@@ -1,62 +1,74 @@
 # Snuffle Pigs
 
-Minecraft **Bedrock**-tillägg: fem handgjorda grisar som **söker**. Systerprojekt
-till [Loyal Companions](https://loyal.pelleops.se) (hundar) och
-[Purrfect Companions](https://purrfect.pelleops.se) (katter) — samma maskineri,
-annat djur och ett annat verb.
+Minecraft **Bedrock** add-on: five hand-made pigs that **search**. Sibling
+project to [Loyal Companions](https://loyal.pelleops.se) (dogs) and
+[Purrfect Companions](https://purrfect.pelleops.se) (cats) — same machinery,
+different animal, different verb.
 
-Minecraft har redan en gris. Den finns för att bli fläsk, och att rida den med
-morot på pinne går knappt att styra. Det här paketet ger grisen ett jobb: den
-**nosar upp malm genom berget** och säger åt vilket håll den ligger, den **bökar
-upp tryfflar** ur jorden, och sadlad går den att **styra på riktigt**.
+Minecraft already has a pig. It exists to become pork, and riding it with a
+carrot on a stick barely steers. This add-on gives the pig a job: it **smells
+ore through solid rock** and tells you which way it lies, it **roots up
+truffles** out of the ground, and saddled it **actually steers**.
 
-![grisarna](publish/pigs.png)
+![the pigs](publish/pigs.png)
 
-## De fem
+## The five
 
-| Namn | Ras | Näsa | Fart | Liv | Bor i |
-|------|-----|------|------|-----|-------|
-| Nilla | Kunekune | 6 block | 0,26 | 14 | slätter |
-| Bramble | Ullgris (mangalitsa) | 7 block | 0,24 | 20 | taiga |
-| Blossom | Lantras (large white) | 5 block | 0,22 | 24 | slätter |
-| Soot | Berkshire | **12 block** | 0,25 | 18 | skog |
-| Ember | Tamworth | 8 block | **0,32** | 16 | savann |
+| Name | Breed | Nose | Speed | Health | Lives in |
+|------|-------|------|-------|--------|----------|
+| Nilla | Kunekune | 6 blocks | 0.26 | 14 | plains |
+| Bramble | Mangalitsa | 7 blocks | 0.24 | 20 | taiga |
+| Blossom | Large White | 5 blocks | 0.22 | 24 | plains |
+| Soot | Berkshire | **12 blocks** | 0.25 | 18 | forest |
+| Ember | Tamworth | 8 blocks | **0.32** | 16 | savanna |
 
-Skillnaderna är inte pynt. Soot känner malm dubbelt så långt som Blossom, och
-Blossom bär mest och tål mest — man väljer gris efter uppgift, inte efter färg.
+The differences are not decoration. Soot smells ore twice as far as Blossom, and
+Blossom carries the most and takes the most punishment. You pick a pig for the
+job, not for the colour.
 
-## Hur man använder dem
+They are not reskins either: each body is built from its own measurements, so
+the Kunekune really is low and round and the Large White really is heavy. What
+makes a pig read as a pig at a glance is the snout, so every breed has its own.
 
-- **Tämj** med en morot (fyra gånger av tio per morot).
-- **Byt läge** med en pinne i handen: Följ → Böka → Stanna.
-- **Böka**: i bökläget gräver grisen upp tryfflar ur jord, gräs, podsol, mycel,
-  mossa, lera och rotad jord. Tryffeln syns i trynet ett ögonblick innan den
-  faller — så man ser varifrån den kom.
-- **Vittring**: i bökläget känner grisen malm genom berget och säger vad den
-  känner, åt vilket håll och hur långt bort. Väderstreck och avstånd, inte exakta
-  koordinater: den säger vart man ska gräva och låter dig göra resten.
-- **Sadla** med en sadel, så går den att rida med full styrning. **Sadelväskor**
-  med en kista.
-- **Vältra sig.** En gris som hittar lera lägger sig i den och går omkring
-  lerig på magen och benen ett tag efteråt. Vatten tvättar av. Det gör
-  ingenting nyttigt — det är bara vad grisar gör.
-- **Föd upp** med tryffel, potatis eller rödbeta. Kultingen föds redan din.
+## How to use them
 
-Tryffeln går att äta och är det bästa avelsfodret — det man hittar har en
-användning även när skafferiet är fullt.
+- **Tame** with a carrot — about four tries in ten per carrot.
+- **Switch modes** with a stick in hand: Follow → Snuffle → Stay.
+- **Snuffle.** In Snuffle mode a pig roots truffles out of dirt, grass, podzol,
+  mycelium, moss, mud and rooted dirt. You see the truffle in its snout for a
+  moment before it drops, so you can tell where it came from.
+- **Catch a scent.** In Snuffle mode a pig senses ore through the stone around
+  it and reports what it smells, which way it lies and how far off it is. A
+  compass direction and a distance, not exact coordinates: it tells you where to
+  dig and leaves the digging to you.
+- **Saddle** one and it steers the way a horse steers. Add a **chest** for
+  saddlebags with fifteen slots.
+- **Wallow.** A pig that finds mud lies down in it and walks around muddy on its
+  belly and legs for a while afterwards. Water washes it off. It does nothing
+  useful — it is simply what pigs do.
+- **Breed** with a truffle, a potato or a beetroot. The piglet is born already
+  yours, and it grows up.
 
-## Bygga och testa
+Truffles are food, and they are also the best breeding feed — what you find has
+a use even when the larder is full.
+
+## Building and testing
 
 ```bash
-python3 tools/make_pigs.py        # genererar ALLT: modeller, texturer, JSON, språk
-python3 tools/render_pigs.py      # publish/pigs.png — se dem utan Minecraft
-tools/snuffle-test                # statiska spärrar + skarp Bedrock-server
-python3 tools/snuffle-falsifiera  # provar att spärrarna faktiskt faller
+python3 tools/make_pigs.py         # generates EVERYTHING: models, textures, JSON, language
+python3 tools/render_pigs.py       # publish/pigs.png — see them without Minecraft
+tools/snuffle-test                 # static gates + a live Bedrock server
+python3 tools/snuffle-falsifiera   # proves the gates actually fail
+tools/snuffle-uthallighet          # state survives a restart, and what the loop costs
 ```
 
-Ingenting i `SnuffleCompanions_BP/` eller `SnuffleCompanions_RP/` skrivs för
-hand — `tools/make_pigs.py` äger dem och skriver om dem från grunden. Redigerar
-man en genererad fil försvinner ändringen nästa körning.
+Nothing in `SnuffleCompanions_BP/` or `SnuffleCompanions_RP/` is written by
+hand — `tools/make_pigs.py` owns them and rewrites them from scratch. Edit a
+generated file and the change is gone on the next run.
 
-Krav på maskinen: en Bedrock-server i `/opt/bds/server` och kattprojektets
-`render_regression.py` för PNG-läsning.
+`snuffle-falsifiera` breaks one thing at a time in a copy of the pack and checks
+that the right gate complains about the right thing. A gate that has never seen
+a failure is not proven; it might as well be a line that always says yes.
+
+Requirements: a Bedrock server in `/opt/bds/server`, and the cat project's
+`render_regression.py` for reading and writing PNGs.
