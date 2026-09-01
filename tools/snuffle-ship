@@ -156,10 +156,20 @@ PYMETA
   echo "☁️  laddar upp till CurseForge-projekt $CF_PROJECT ..."
   # OBS: gameVersions ska INTE skickas för Bedrock-projekt — API:et svarar
   # "Invalid game version ID ... belongs to an invalid game". Java kräver det.
-  RESP=$(curl -s --max-time 180 -X POST \
-    -H "X-Api-Token: $(cat "$CF_TOKEN_FILE")" \
-    -F "metadata=<$METAFILE" -F "file=@$OUT" \
-    "$CF_API/projects/$CF_PROJECT/upload-file")
+  # CURSEFORGE SVARAR IBLAND 500 UTAN ORSAK. Det hände vid 1.2.0-släppet:
+  # samma fil och samma 746 tecken metadata gick igenom direkt vid ett manuellt
+  # omförsök. Skriptet gav upp på första svaret, och eftersom det avslutade före
+  # loggboksraden fanns uppladdningen inte i .shipped.tsv trots att den lyckats
+  # — nästa körning hade då inte kunnat se att innehållet ändrats.
+  for FORSOK in 1 2 3; do
+    RESP=$(curl -s --max-time 180 -X POST \
+      -H "X-Api-Token: $(cat "$CF_TOKEN_FILE")" \
+      -F "metadata=<$METAFILE" -F "file=@$OUT" \
+      "$CF_API/projects/$CF_PROJECT/upload-file")
+    echo "$RESP" | grep -q '"id"' && break
+    echo "   försök $FORSOK gav: $RESP"
+    [ "$FORSOK" -lt 3 ] && { echo "   väntar och provar igen..."; sleep 15; }
+  done
   echo "   svar: $RESP"
   echo "$RESP" | grep -q '"id"' && echo "✅ uppladdad till CurseForge" || { echo "❌ CurseForge-uppladdningen misslyckades"; exit 1; }
   printf '%s\t%s\t%s\n' "$VER" "curseforge" "$CONTENT_SHA" >> "$LEDGER"

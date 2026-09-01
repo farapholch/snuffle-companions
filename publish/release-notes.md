@@ -1,5 +1,21 @@
 # Release notes
 
+## 1.2.0
+
+**Pigs wallow now.** A pig that finds mud lies down in it and walks around muddy
+on its belly and legs for a while afterwards. Water washes it off. Wild pigs do
+it too — a muddy pig in a swamp is the whole point. It does nothing useful; it
+is simply what pigs do, and nothing else in the pack did it.
+
+Three quieter things, all of them promises the pack was already making:
+
+- A pig's **hitbox now follows its size**. Every breed had the same one, so a
+  Kunekune was as wide to walk into as a Large White.
+- The **saddlebags are proven to carry**. They always did, but nothing had ever
+  checked that the fifteen slots hold anything.
+- Taming, mode, saddle, bags **and what is in the bags** are now proven to
+  survive a world restart.
+
 ## 1.1.0
 
 The pack is now called **Snuffle Pigs**, the same name it has in the store. It
