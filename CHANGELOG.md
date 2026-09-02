@@ -1,5 +1,34 @@
 # Ändringar
 
+## 1.4.0 — 2026-09-02
+
+**Hud i fyra texlar per enhet.** Grisarna ritades i en texel per modellenhet,
+så varje sida var ett rosa färgfält med en ljusare ovansida. Arken är nu fyra
+gånger tätare (512x512 på samma geometri), och det är skillnaden mellan en
+färg och en hud.
+
+Huden har fläckvis mönstring och glesa mörka borst. Bramble's ull krusar sig i
+små lockar i stället för att vara en slät kudde. Klövarna har en klövspringa.
+Nillas fläckar är runda och oregelbundna, Embers band har en levande kant.
+Ögonen har kant, iris som mörknar nedåt, pupill och glans, med ett svagt bryn.
+Trynskivan är en skiva: mörkare ring runt kanten och två ovala näsborrar.
+Uppstående öron har ett ljusare inneröra.
+
+**Grisarna ler.** De hade ingen mun alls, och det är munnen som ger ett
+ansikte uttryck. Nu finns ett leende under trynet vars mungipor går upp vid
+sidan av trynskivan, och en rodnad på kinderna snett under ögonen. Två försök
+med en båge rakt under trynet gav bara ett streck: skivan är bredare och lägre
+än trynet och skymde resten.
+
+Sadeln är läder med sömmar och två remmar, väskorna segelduk med rem och
+spänne, tryffeln knotig med gropar och knölar, och leran klumpig och blöt med
+torkad kant upptill och rinn nedåt.
+
+Testets ansiktsspärrar räknar nu klungor av texlar i stället för enstaka
+pixlar, så de mäter samma sak på det tätare arket.
+
+Inget i grisarnas beteende ändrades.
+
 ## 1.3.1 — 2026-09-02
 
 Paketikonen gjordes om mot de nya ansiktena efter att 1.3.0 gått till Mod Mate.

@@ -85,15 +85,20 @@ SKALLE = lambda k: max(k, key=lambda c: c["size"][0] * c["size"][1])
 SKIVA = lambda k: min(k, key=lambda c: c["size"][2])
 
 
-def mala_over(ras, valj, kolumner=None):
-    """Målar framsidan enfärgad — hela ytan, eller bara vissa kolumner."""
+def mala_over(ras, valj, intervall=None):
+    """Målar framsidan enfärgad — hela ytan, eller bara vissa kolumner
+    (intervall i UV-ENHETER från ytans vänsterkant). Arket är tätare än
+    geometrin sedan v1.4.0, så koordinaterna skalas med k."""
     (w, h, px), fil, (fx, fy, fw, fh) = _framsidan(ras, valj)
-    ax, ay = int(fx + 0.999), int(fy + 0.999)
-    bx, by = int(fx + fw + 1e-6), int(fy + fh + 1e-6)
+    geos = json.load(open(f"{RP}/models/entity/gris.geo.json"))["minecraft:geometry"]
+    k = w / geos[0]["description"]["texture_width"]
+    ax, ay = int(fx * k + 0.999), int(fy * k + 0.999)
+    bx, by = int((fx + fw) * k + 1e-6), int((fy + fh) * k + 1e-6)
     grund = px[ay][ax]
     for y in range(ay, by):
         for x in range(ax, bx):
-            if kolumner is None or (x - ax) in kolumner:
+            kol = (x + 0.5 - fx * k) / k
+            if intervall is None or any(a <= kol < b for a, b in intervall):
                 px[y][x] = grund
     rr.write_png(fil, w, h, px)
 
@@ -135,14 +140,15 @@ PROV = [
     ("geometrin och PNG:en i olika skala",
      lambda: jsonfix(f"{RP}/models/entity/gris.geo.json",
                      lambda d: d["minecraft:geometry"][0]["description"].update(
-                         texture_width=64, texture_height=64)),
-     "texturstorlek"),
+                         texture_width=100, texture_height=128)),
+     "heltalsmultipel"),
     ("ögonen bortmålade",
      lambda: mala_over("blossom", SKALLE),
      "ögonen syns inte"),
     ("ögat krympt till en texel på familjens största huvud",
-     lambda: mala_over("blossom", SKALLE, kolumner={2, 7}),
-     "texel breda"),
+     # ögonen sitter kring 1,6 och bredd-1,6 enheter in; måla bort innerhalvan
+     lambda: mala_over("blossom", SKALLE, intervall=[(1.0, 1.62), (7.38, 8.1)]),
+     "enheter breda"),
     ("näsborrarna bortmålade",
      lambda: mala_over("ember", SKIVA),
      "0 näsborrar"),

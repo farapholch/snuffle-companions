@@ -94,8 +94,12 @@ for f in sorted(glob.glob(f"{RP}/entity/*.json")):
     if geoid not in PER_GEO:
         bad.append(f"{namn}: geometrin {geoid} finns inte"); continue
     dsc = PER_GEO[geoid]["description"]
-    if (dsc.get("texture_width"), dsc.get("texture_height")) != (tw, th):
-        bad.append(f"{namn}: geometrins texturstorlek != PNG {tw}x{th}")
+    # Arket får vara en HELTALSMULTIPEL av geometrins uv-enheter (fyra texlar
+    # per enhet sedan v1.4.0), aldrig en annan proportion.
+    kx, ky = tw / dsc.get("texture_width", 1), th / dsc.get("texture_height", 1)
+    if kx != ky or kx != int(kx) or kx < 1:
+        bad.append(f"{namn}: arket {tw}x{th} är inte en heltalsmultipel av geometrins "
+                   f"{dsc.get('texture_width')}x{dsc.get('texture_height')}")
     egna_ben = {b["name"] for b in PER_GEO[geoid]["bones"]}
     for anim in d.get("animations", {}).values():
         for krav in KRAV.get(anim, []):
@@ -136,49 +140,83 @@ for f in sorted(glob.glob(f"{RP}/entity/*.json")):
     skiva = skivor[0]
     _w, _h, px = rr.read_png(f"{RP}/{d['textures']['default']}.png")
 
+    # ARKET ÄR TÄTARE ÄN GEOMETRIN (fyra texlar per uv-enhet sedan v1.4.0):
+    # allt mäts i texlar, koordinaterna ur geometrin skalas med k.
+    k = _w / geo["description"]["texture_width"]
+
     def yta(kub):
         u, v = kub["uv"]; b_, h_, dd = kub["size"]
         fx, fy, fw, fh = rr.faces(u, v, b_, h_, dd)["north"]
-        ax, ay = math.ceil(fx - 1e-6), math.ceil(fy - 1e-6)
-        bx, by = math.floor(fx + fw + 1e-6), math.floor(fy + fh + 1e-6)
-        return fy, [(x, y, tuple(px[y][x][:3]))
-                    for y in range(ay, by) for x in range(ax, bx)]
+        ax, ay = math.ceil(fx * k - 1e-6), math.ceil(fy * k - 1e-6)
+        bx, by = math.floor((fx + fw) * k + 1e-6), math.floor((fy + fh) * k + 1e-6)
+        return fy * k, [(x, y, tuple(px[y][x][:3]))
+                        for y in range(ay, by) for x in range(ax, bx)]
 
-    # ÖGONEN: pixlar som avviker tydligt från pälsen på skallens framsida.
+    def klungor(punkter):
+        """Sammanhängande grupper av texlar (4-grannskap)."""
+        kvar = {(x, y) for x, y, _c in punkter}
+        ut = []
+        while kvar:
+            start = kvar.pop(); grupp = {start}; stack = [start]
+            while stack:
+                x, y = stack.pop()
+                for g in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                    if g in kvar:
+                        kvar.remove(g); grupp.add(g); stack.append(g)
+            ut.append(grupp)
+        return ut
+
+    # ÖGONEN: klungor av texlar som avviker tydligt från huden på skallens
+    # framsida. Ett öga är en kant, en iris och en glans — flera toner, men EN
+    # klunga per öga.
+    # GRUNDFÄRGEN ÄR MEDELVÄRDET, inte den vanligaste texeln. Med pälskorn är
+    # varje hudtexel unik, så "vanligast" blev näsborrens konstanta färg — och
+    # då räknades hela huden som avvikande: en enda klunga, "1 näsborre".
+    def medel(pkt):
+        return tuple(sum(c[i] for _x, _y, c in pkt) / len(pkt) for i in range(3))
     fy_sk, punkter = yta(skalle)
-    pals = Counter(c for _x, _y, c in punkter).most_common(1)[0][0]
-    ogon = [(x, y, c) for x, y, c in punkter if _skil(c, pals) >= 60]
+    pals = medel(punkter)
+    # BARA ÖVRE HÄLFTEN: munnen och kindernas rodnad (v1.4.0) avviker också
+    # från huden, och de sitter nedtill. Räknas de in ligger "ögonen" under
+    # trynet och spärren faller på alla fem.
+    ymitt = fy_sk + (skalle["size"][1] * k) * 0.55
+    ogon = klungor([(x, y, c) for x, y, c in punkter if _skil(c, pals) >= 60 and y < ymitt])
+    ogon = [g for g in ogon if len(g) >= 4]
     if len(ogon) < 2:
-        bad.append(f"{ras}: ansiktet har {len(ogon)} pixlar som avviker från pälsen "
+        bad.append(f"{ras}: ansiktet har {len(ogon)} ögonklungor som avviker från huden "
                    f"— ögonen syns inte")
     else:
         # STORLEKEN SKA FÖLJA HUVUDET. Ett 1x1-öga på ett 9 texlar brett huvud
         # är exakt det Blossom hade.
         bredd = skalle["size"][0]
-        rad = Counter(y for _x, y, _c in ogon).most_common(1)[0][0]
-        pa_raden = len([1 for _x, y, _c in ogon if y == rad])
-        if bredd >= 8 and pa_raden < 4:
+        bredast = max(max(x for x, _y in g) - min(x for x, _y in g) + 1 for g in ogon)
+        if bredd >= 8 and bredast < 1.0 * k:
             bad.append(f"{ras}: huvudet är {bredd} brett men ögonen är bara "
-                       f"{pa_raden // 2} texel breda")
+                       f"{bredast / k:.1f} enheter breda")
         # ÖGONEN OVANFÖR NOSEN. Räknas i modellenheter, inte i texelrader, så
         # måttet betyder samma sak för alla fem kropparna.
+        rad = max(y for g in ogon for _x, y in g)
         oy, oh = skalle["origin"][1], skalle["size"][1]
-        oga_underkant = oy + oh - (rad + 1 - fy_sk)
+        oga_underkant = oy + oh - (rad + 1 - fy_sk) / k
         skiv_topp = skiva["origin"][1] + skiva["size"][1]
         if oga_underkant < skiv_topp:
             bad.append(f"{ras}: ögonen ({oga_underkant:.2f}) sitter inte över "
                        f"trynskivans överkant ({skiv_topp:.2f})")
 
-    # NÄSBORRARNA: exakt två, på samma rad, med glapp emellan, och synliga.
+    # NÄSBORRARNA: exakt två klungor, i samma höjd, med glapp emellan, synliga.
     _fy, punkter = yta(skiva)
-    grund = Counter(c for _x, _y, c in punkter).most_common(1)[0][0]
-    nos = [(x, y, c) for x, y, c in punkter if _skil(c, grund) >= 60]
+    grund = medel(punkter)
+    nos = [g for g in klungor([(x, y, c) for x, y, c in punkter if _skil(c, grund) >= 60])
+           if len(g) >= 2]
     if len(nos) != 2:
         bad.append(f"{ras}: trynskivan har {len(nos)} näsborrar, ska ha 2")
-    elif nos[0][1] != nos[1][1]:
-        bad.append(f"{ras}: näsborrarna sitter på olika rader")
-    elif abs(nos[0][0] - nos[1][0]) < 2:
-        bad.append(f"{ras}: näsborrarna sitter ihop till ett streck")
+    else:
+        mitt = [sum(y for _x, y in g) / len(g) for g in nos]
+        v = min(max(x for x, _y in g) for g in nos); h = max(min(x for x, _y in g) for g in nos)
+        if abs(mitt[0] - mitt[1]) > 1.0:
+            bad.append(f"{ras}: näsborrarna sitter på olika höjd")
+        elif h - v < 2:
+            bad.append(f"{ras}: näsborrarna sitter ihop till ett streck")
 
 # ITEM_TEXTURE MÅSTE PEKA PÅ FILER SOM FINNS. En saknad PNG ger ett rosa-svart
 # rutmönster i handen, inte ett felmeddelande.

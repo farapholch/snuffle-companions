@@ -235,203 +235,298 @@ def sh(c, k):
     return tuple(min(255, int(v * k)) for v in c[:3]) + (255,)
 
 
-SIDSKUGGA = {"top": 1.14, "bottom": 0.72, "north": 1.0, "south": 0.92,
-             "east": 0.88, "west": 0.88}
+# FYRA TEXLAR PER ENHET sedan v1.4.0, samma mekanism som katt- och hundpaketet:
+# geometrin deklarerar TW x TH uv-enheter och PNG:en är SKALA gånger det.
+# Innan dess var varje sida ett färgfält; grisen var en rosa låda med två
+# prickar. Nu har huden fläckvis mönstring och glesa borst, ullen krusar sig,
+# leran är klumpig, sadeln har sömmar och trynskivan är en skiva.
+SKALA = 4
+sys.path.insert(0, "/opt/purrfect-companions/tools")
+from make_cat_pals import Duk, korn, blanda, skala as ton, lum, _h
+
+SIDSKUGGA = {"top": 1.06, "bottom": 0.80, "north": 1.0, "south": 0.95,
+             "east": 0.95, "west": 0.95}
 
 # Sadel, väskor och tryffel har föremålens färger, inte grisens.
-# Tryffeln var (52,40,34) och blev en svart klump under trynet som läste som en
-# öppen mun. Ljusare och varmare, så den syns som ett FÖREMÅL grisen bär.
 UTRUSTNING = {"sadel": (118, 74, 42), "vaska": (96, 62, 38), "tryffel": (84, 62, 48),
-              # Blöt lera: mörkare och gråare än trä, annars läser den som sadel.
               "lera": (86, 68, 52)}
 
 
+def _R(f):
+    return tuple(v * SKALA for v in f)
+
+
+def hud(bas, sida, borst=True, k=0.6):
+    """Grishud: ljus uppifrån, fläckvis mönstring och glesa mörka borst."""
+    bas = tuple(bas[:3])
+    morkare = blanda(bas, (0, 0, 0), 0.12)
+
+    def fn(a, b, x, y):
+        c = ton(bas, SIDSKUGGA[sida] * (1.05 - 0.14 * b))
+        n = _h(x // 5, y // 5, 31) * 0.6 + _h(x // 11, y // 11, 32) * 0.4
+        c = blanda(c, morkare, max(0.0, n - 0.5) * 0.5)
+        if borst and _h(x // 2, y // 4, 33) < 0.05 and (y % 4) < 3:
+            c = ton(c, 0.86)                                   # ett borststrå
+        return korn(c, x, y, k)
+    return fn
+
+
 def pals(rasid, delar, uv, farg):
-    """Målar en hel päls ur kubtabellen: en yta per kubsida, sedan mönstren."""
-    px = [[(0, 0, 0, 0)] * TW for _ in range(TH)]
+    """Målar en hel hud ur kubtabellen: en yta per kubsida, sedan mönstren,
+    sist ansiktet."""
+    duk = Duk(TW * SKALA, TH * SKALA)
+    P, SK, UN, TR = (tuple(farg["pals"]), tuple(farg["skugga"]),
+                     tuple(farg["under"]), tuple(farg["tryne"]))
+
+    def fyll(f, fn):
+        duk.yta(_R(f), fn, 255)
 
     def rect(x0, y0, w, h, c):
-        for y in range(int(y0), int(math.ceil(y0 + h))):
-            for x in range(int(x0), int(math.ceil(x0 + w))):
-                if 0 <= x < TW and 0 <= y < TH:
-                    px[y][x] = c
-
-    def irect(x0, y0, w, h, c):
-        """Detaljer i HELA pixlar. rect() rundar utåt i båda ändar, så en
-        näsborre på 1x1 mitt på ett tryne med bruten bredd blev 2x2."""
-        for y in range(int(round(y0)), int(round(y0)) + int(h)):
-            for x in range(int(round(x0)), int(round(x0)) + int(w)):
-                if 0 <= x < TW and 0 <= y < TH:
-                    px[y][x] = c
+        duk.yta((x0 * SKALA, y0 * SKALA, w * SKALA, h * SKALA),
+                lambda a, b, x, y: korn(tuple(c[:3]), x, y, 0.5), 255)
 
     sidor = {}
     for i, (roll, benamn, _f, _o, size) in enumerate(delar):
-        b, h, d = size
+        b_, h_, d_ = size
         u, v = uv[i]
-        f = rr.faces(u, v, b, h, d)
+        f = rr.faces(u, v, b_, h_, d_)
         sidor.setdefault(roll, []).append((f, size))
-        grund = UTRUSTNING.get(roll) or {"ull": farg["under"],
-                                         "ora": farg["skugga"],
-                                         "tryne": farg["tryne"],
-                                         "trynskiva": farg["tryne"]}.get(roll, farg["pals"])
-        for namn, (fx, fy, fw, fh) in f.items():
-            rect(fx, fy, fw, fh, sh(grund, SIDSKUGGA[namn]))
+        if roll in ("sadel", "vaska", "tryffel", "lera"):
+            _utrustning(duk, roll, f, size)
+            continue
+        if roll == "ull":
+            for namn, yta in f.items():
+                fyll(yta, _ull(UN, namn))
+            continue
+        grund = {"ora": SK, "tryne": TR, "trynskiva": TR}.get(roll, P)
+        for namn, yta in f.items():
+            fyll(yta, hud(grund, namn, borst=(roll in ("body", "head", "ben"))))
+        if roll == "ora":
+            inre = blanda(SK, TR, 0.5)
+            fyll(f["north"], lambda a, b, x, y: korn(inre, x, y, 0.4)
+                 if 0.2 < b < 0.9 and abs(a - 0.5) < 0.1 + 0.3 * b else hud(SK, "north", False)(a, b, x, y))
 
     for mall in farg.get("monster", []):
-        MONSTER[mall](rect, sidor, farg)
-
-    # SADELNS REMMAR. En brun kub över ryggen läser som en låda; två mörka
-    # tvärband gör att ögat ser en sadel.
-    for f, size in sidor.get("sadel", []):
-        tx, ty, tw_, th_ = f["top"]
-        rect(tx, ty + th_ / 2 - 1, tw_, 2, sh(UTRUSTNING["sadel"], 0.6))
-        for namn in ("east", "west"):
-            fx, fy, fw, fh = f[namn]
-            rect(fx, fy, fw, fh, sh(UTRUSTNING["sadel"], SIDSKUGGA[namn] * 0.85))
-
-    # TRYFFELN SKA SE KNOTIG UT, inte som en kolbit. Ljusa fläckar på ovansidan
-    # och en ljusare söm framtill ger den yta.
-    for f, size in sidor.get("tryffel", []):
-        for namn in ("north", "top"):
-            fx, fy, fw, fh = f[namn]
-            irect(fx, fy, 1, 1, sh(UTRUSTNING["tryffel"], 1.9))
-            irect(fx + int(fw) - 1, fy + int(fh) - 1, 1, 1, sh(UTRUSTNING["tryffel"], 1.5))
+        MONSTER[mall](rect, sidor, farg, fyll)
 
     # ANSIKTET sist, så inget mönster målar över ögonen.
-    #
-    # ALLA DETALJER PLACERAS MED inre(). En yta vars kant hamnar på en halv
-    # texel (trynet börjar på y=42,5) delar sin första och sista texel med
-    # grannytan, och round() lade då detaljen på GRANNEN i stället: ember och
-    # nilla saknade näsborrar helt, och ingen hade märkt det på tre versioner
-    # eftersom ett tryne utan näsborrar fortfarande är ett rosa tryne.
-    def inre(f0, fl):
-        """Första och sista texel som ligger HELT inne i ytan, som [a, b)."""
-        a = int(math.ceil(f0 - 1e-6))
-        b = int(math.floor(f0 + fl + 1e-6))
-        return a, max(a + 1, b)
-
+    mork = blanda(P, (0, 0, 0), 0.75) if lum(P) > 70 else blanda(P, (255, 255, 255), 0.35)
     for f, size in sidor["head"]:
         hs, hh = size[0], size[1]
         fx, fy, fw, fh = f["north"]
-        ax, bx = inre(fx, fw)
-        ay, by = inre(fy, fh)
-        # ÖGATS STORLEK FÖLJER HUVUDET. Blossom har familjens största huvud
-        # (9 texlar brett) och hade samma 1x1-öga som kunekunens på 7 —
-        # proportionellt det minsta av alla fem. Tillsammans med att det låg
-        # nere vid trynet försvann det helt, och spelaren rapporterade en gris
-        # UTAN ÖGON. Det var en riktig bugg, inte en smaksak.
-        ob = 2 if hs >= 8 else 1
-        # ÖGONEN SITTER I ÖVRE TREDJEDELEN, räknat UR HUVUDETS HÖJD — huvudet
-        # är plattare än det är brett, så bredden gav ögon nere i trynet.
-        # Trynets överkant ligger på hh*0,55 räknat uppifrån; 0,26 lämnar en
-        # tom rad emellan så ögat inte klistrar ihop med nosen.
-        rad = min(max(ay, int(fy + fh * 0.26)), by - 3)
-        ljus = sum(farg["pals"]) / 3
-        kontrast = sh(farg["pals"], 0.55 if ljus > 130 else 1.7)
-        # GLANSEN GÖR ÖGAT SÖTT. Ett ögon som bara är en mörk fyrkant är en
-        # knapp; en ljus prick i övre hörnet läser omedelbart som en blank,
-        # levande blick — det är samma knep vanilla använder på axolotl och
-        # katt, och det är hela skillnaden mellan "djur" och "gulligt djur".
-        # Prickens färg är trynets ljusaste ton, inte rent vitt: rent vitt
-        # lyser igenom på en mörk gris och ögat ser sprucket ut.
-        glans = sh(farg["under"], 1.0)
-        for ox in (ax + 1, bx - 1 - ob):
-            irect(ox, rad, ob, 2, farg["ogon"] + (255,))
-            irect(ox, rad, 1, 1, glans)
-            irect(ox, rad + 2, ob, 1, kontrast)
+        # ÖGONEN I ÖVRE TREDJEDELEN, räknat ur huvudets höjd; storleken följer
+        # huvudet — ett litet öga på familjens största huvud var Blossoms bugg.
+        cy = fh * 0.32
+        rx = 0.62 if hs >= 8 else 0.48
+        ry = rx * 0.9
+        ogon = [(1.6, cy, +1), (fw - 1.6, cy, -1)]
+        iris, iris_m = tuple(farg["ogon"]), blanda(tuple(farg["ogon"]), (0, 0, 0), 0.45)
+        glans = blanda(UN, (255, 255, 255), 0.5)
 
-    # NÄSBORRARNA ÄR HELA POÄNGEN. Ett enfärgat tryne är bara en kloss; två
-    # mörka prickar gör att ansiktet omedelbart läser som en gris. De målas på
-    # SKIVAN, inte på nosryggen — det är skivan man ser framifrån.
+        # LEENDET. En gris utan mun är en gris utan uttryck; ett leende under
+        # trynet och rosiga kinder är hela skillnaden mellan "gris" och "glad
+        # gris". Munnen ligger på skallens framsida, i remsan under trynet,
+        # och böjer UPPÅT i vinklarna. Kinderna är en antydan till rodnad
+        # snett under ögonen, mest synlig på de ljusa grisarna.
+        mun = blanda(mork, TR, 0.25)
+        kind = blanda(P, (226, 96, 110), 0.40)
+        tryne_botten = 0.85                         # trynet slutar 15 % ovanför hakan
+
+        def ansikte(a, b, x, y, fn0=hud(P, "north")):
+            X, Y = a * fw, b * fh
+            c = fn0(a, b, x, y)
+            for ex, ey, _i in ogon:
+                if math.hypot((X - ex + _i * 0.3) / 1.1, (Y - (ey + ry + 1.0)) / 0.8) < 1.0:
+                    c = blanda(c, kind, 0.7)
+            # munnen: en båge som hänger under trynet och vänder upp mot kinderna
+            # TRYNSKIVAN SKYMMER. Den är bredare och lägre än trynet (ner till
+            # 92 % av huvudets höjd, ut till 29 % från mitten), så två försök
+            # med en båge under trynet gav bara ett streck: resten låg bakom
+            # skivan. Mungiporna måste därför ut FÖRBI skivans kant och upp mot
+            # kinderna för att synas — det är där ett grin sitter ändå.
+            mitt_b = tryne_botten + 0.11
+            for tecken in (-1, 1):
+                t = tecken * (a - 0.5) / 0.42          # 0 i mitten, 1 vid mungipan
+                if 0 <= t <= 1.0:
+                    kurva = mitt_b - 0.28 * t * t
+                    if abs(b - kurva) < 0.05:
+                        return mun
+            for ex, ey, inat in ogon:
+                dx, dy = (X - ex) / rx, (Y - ey) / ry
+                r = math.hypot(dx, dy)
+                if r > 1.0:
+                    if abs(X - ex) < rx + 0.2 and 0 < ey - ry - Y < 0.4:
+                        return blanda(c, mork, 0.2)                  # brynet
+                    continue
+                if r > 0.80:
+                    return mork
+                if math.hypot(X - ex, Y - ey) < 0.24:
+                    return blanda(iris_m, (0, 0, 0), 0.8)
+                if math.hypot(X - (ex + inat * 0.22), Y - (ey - 0.22)) < 0.16:
+                    return glans
+                return blanda(iris, iris_m, 0.15 + 0.5 * (dy + 1) / 2)
+            return c
+        fyll(f["north"], ansikte)
+
+    # NÄSBORRARNA ÄR HELA POÄNGEN. Två ovala hål på skivan, med glapp emellan,
+    # och en svagt mörkare ring runt skivans kant så den läser som en skiva.
+    nosborre = blanda(TR, (0, 0, 0), 0.6) if lum(TR) > 130 else blanda(TR, (255, 255, 255), 0.5)
     for f, size in sidor["trynskiva"]:
         fx, fy, fw, fh = f["north"]
-        rect(fx, fy, fw, fh, sh(farg["tryne"], 1.0))
-        ax, bx = inre(fx, fw)
-        ay, by = inre(fy, fh)
-        mitt = min(max(ay, int(fy + fh * 0.45)), by - 1)
-        # NÄSBORRARNA MÅSTE HA GLAPP EMELLAN SIG. Utan glapp flyter de ihop
-        # till ETT mörkt streck och grisen ser ut att ha mustasch — eller värre,
-        # en mun. Skivan är bara fyra till sex texlar bred, så "en in från
-        # varje kant" räcker inte alltid: då används ytterkanterna i stället.
-        vanster, hoger = ax + 1, bx - 2
-        if hoger - vanster < 2:
-            vanster, hoger = ax, bx - 1
-        # NÄSBORRENS FÄRG FÖLJER TRYNET, den är inte en fast mörk ton. Berkshiren
-        # har ett nästan svart tryne (96,76,78) och en fast (38,24,28) syntes
-        # inte alls där — samma slags osynlighet som Blossoms ögon, fast åt
-        # andra hållet. Mörkt tryne får ljusa näsborrar.
-        nosborre = sh(farg["tryne"], 0.34 if sum(farg["tryne"]) / 3 > 130 else 1.9)
-        for ox in (vanster, hoger):
-            irect(ox, mitt, 1, 1, nosborre)
+
+        def skiva(a, b, x, y):
+            X, Y = a * fw, b * fh
+            c = korn(ton(TR, 1.04 - 0.1 * b), x, y, 0.4)
+            if a < 0.08 or a > 0.92 or b < 0.1 or b > 0.9:
+                c = ton(c, 0.88)
+            for nx in (fw * 0.31, fw * 0.69):
+                if math.hypot((X - nx) / (fw * 0.09), (Y - fh * 0.5) / (fh * 0.22)) < 1.0:
+                    return nosborre
+            return c
+        fyll(f["north"], skiva)
 
     for f, size in sidor["tryne"]:
-        tx, ty, tw_, th_ = f["top"]
-        rect(tx, ty, tw_, th_, sh(farg["tryne"], 1.08))     # nosryggen ljusare
-    rr.write_png(f"{RP}/textures/entity/{rasid}.png", TW, TH, px)
+        fyll(f["top"], hud(ton(TR, 1.08), "top", False))
+    rr.write_png(f"{RP}/textures/entity/{rasid}.png", TW * SKALA, TH * SKALA, duk.px)
 
 
-def m_sockor(rect, sidor, farg):
-    """Ljusa klövar: nedre tredjedelen av varje bensida."""
+def _ull(UN, sida):
+    """Krusig ull: små ljusa bågar i ett fast rutnät, som lockar."""
+    UN = tuple(UN[:3])
+    ljus, mork = blanda(UN, (255, 255, 255), 0.3), blanda(UN, (0, 0, 0), 0.18)
+
+    def fn(a, b, x, y):
+        cx, cy = x % 5, y % 5
+        c = ton(UN, SIDSKUGGA[sida] * (1.04 - 0.1 * b))
+        r = math.hypot(cx - 2, cy - 2)
+        if 1.2 < r < 2.3 and cy <= 2:
+            c = ljus
+        elif 1.2 < r < 2.3:
+            c = mork
+        return korn(c, x, y, 0.6)
+    return fn
+
+
+def _utrustning(duk, roll, f, size):
+    c = tuple(UTRUSTNING[roll][:3])
+    for namn, yta in f.items():
+        X0, Y0, FW, FH = _R(yta)
+
+        def fn(a, b, x, y, namn=namn, FW=FW, FH=FH):
+            X, Y = a * FW, b * FH
+            col = ton(c, SIDSKUGGA[namn] * (1.05 - 0.14 * b))
+            if roll == "sadel":
+                # läder med sömmar och två mörka remmar tvärs över
+                if namn in ("east", "west"):
+                    col = ton(col, 0.85)
+                if namn == "top" and abs(b - 0.5) * FH < 2.0:
+                    return ton(c, 0.55)
+                if namn in ("east", "west") and abs(a - 0.5) * FW < 2.0:
+                    return ton(c, 0.55)
+                if (1 <= X < 2 or FW - 2 <= X < FW - 1 or 1 <= Y < 2 or FH - 2 <= Y < FH - 1) and (x + y) % 3:
+                    return blanda(c, (255, 255, 255), 0.4)
+                return korn(col, x, y, 0.4)
+            if roll == "vaska":
+                # segelduk med en rem och ett spänne fram
+                if (x + y) % 2 == 0:
+                    col = ton(col, 1.03)
+                if namn in ("east", "west", "north", "south") and abs(b - 0.35) < 0.05:
+                    return ton(c, 0.6)                           # remmen
+                if namn in ("east", "west") and abs(a - 0.5) < 0.1 and 0.28 < b < 0.62:
+                    return (200, 176, 100) if (abs(a - 0.5) < 0.06 and 0.32 < b < 0.58) else (110, 90, 50)
+                if namn in ("east", "west") and b < 0.3:
+                    col = ton(col, 0.9)                           # locket
+                return korn(col, x, y, 0.4)
+            if roll == "tryffel":
+                # knotig: mörka gropar och ljusa knölar i ett fast mönster
+                n = _h(x // 2, y // 2, 41)
+                if n > 0.85:
+                    return blanda(c, (255, 255, 255), 0.35)
+                if n < 0.2:
+                    return blanda(c, (0, 0, 0), 0.35)
+                return korn(col, x, y, 0.5)
+            # LERAN: klumpig och blöt, med torkad ljusare kant upptill och rinn
+            n = _h(x // 3, y // 3, 51) * 0.7 + _h(x // 7, y // 7, 52) * 0.3
+            col = blanda(col, (0, 0, 0), max(0.0, n - 0.5) * 0.6)
+            if b < 0.12 and _h(x, 0, 53) < 0.6:
+                col = blanda(col, (170, 150, 120), 0.4)           # torkad kant
+            if _h(x // 2, 0, 54) < 0.12 and b < 0.5:
+                col = ton(col, 0.85)                              # rinn
+            return korn(col, x, y, 0.6)
+        duk.yta((X0, Y0, FW, FH), fn, 255)
+
+
+# --- mönstren ---------------------------------------------------------------
+def m_sockor(rect, sidor, farg, fyll):
+    """Ljusa klövar: nedre tredjedelen av varje bensida, med klövspringa."""
+    UN, SK = tuple(farg["under"]), tuple(farg["skugga"])
     for f, size in sidor["ben"]:
-        h = size[1]
         for namn in ("north", "south", "east", "west"):
-            fx, fy, fw, fh = f[namn]
-            del1 = max(1, round(fh / 3))
-            rect(fx, fy + fh - del1, fw, del1, sh(farg["under"], SIDSKUGGA[namn]))
-        bx, by, bw, bh = f["bottom"]
-        rect(bx, by, bw, bh, sh(farg["under"], 0.75))
+            k = SIDSKUGGA[namn]
+
+            def fn(a, b, x, y, k=k, namn=namn):
+                if b < 0.66 + 0.03 * math.sin(a * 9 + 1):
+                    return None
+                if b > 0.86 and namn in ("north", "south") and abs(a - 0.5) < 0.05:
+                    return blanda(UN, (0, 0, 0), 0.4)             # klövspringan
+                return korn(ton(UN, k), x, y, 0.5)
+            fyll(f[namn], fn)
+        fyll(f["bottom"], lambda a, b, x, y: korn(ton(UN, 0.75), x, y, 0.5))
 
 
-def m_band(rect, sidor, farg):
-    """Sadelband: ett brett ljust bälte tvärs över bålen — hampshiregrisens
-    kännetecken, och det tydligaste mönstret på håll."""
+def m_band(rect, sidor, farg, fyll):
+    """Sadelband: ett brett ljust bälte tvärs över bålen — hampshiregrisen."""
+    UN = tuple(farg["under"])
     for f, size in sidor["body"]:
-        kl = size[2]
         for namn in ("east", "west", "top"):
-            fx, fy, fw, fh = f[namn]
-            # Bandet ligger en tredjedel in från framkanten. På sidorna löper
-            # längden i x, på ovansidan i höjd.
+            k = SIDSKUGGA[namn]
             if namn == "top":
-                rect(fx, fy + fh * 0.22, fw, max(2, fh * 0.22), sh(farg["under"], SIDSKUGGA[namn]))
+                fyll(f[namn], lambda a, b, x, y, k=k: korn(ton(UN, k), x, y, 0.5)
+                     if 0.22 + 0.02 * math.sin(a * 11) < b < 0.44 + 0.02 * math.sin(a * 9) else None)
             else:
-                rect(fx + fw * 0.22, fy, max(2, fw * 0.22), fh, sh(farg["under"], SIDSKUGGA[namn]))
+                fyll(f[namn], lambda a, b, x, y, k=k: korn(ton(UN, k), x, y, 0.5)
+                     if 0.22 + 0.02 * math.sin(b * 11) < a < 0.44 + 0.02 * math.sin(b * 9) else None)
 
 
-def m_blas(rect, sidor, farg):
+def m_blas(rect, sidor, farg, fyll):
     """Bläs: en ljus rand mitt i ansiktet och över nosryggen."""
+    UN = tuple(farg["under"])
     for f, size in sidor["head"]:
-        fx, fy, fw, fh = f["north"]
-        rect(fx + fw / 2 - 1, fy, 2, fh, sh(farg["under"], 1.0))
-        tx, ty, tw_, th_ = f["top"]
-        rect(tx + tw_ / 2 - 1, ty, 2, th_, sh(farg["under"], 1.1))
+        fw = f["north"][2]
+        fyll(f["north"], lambda a, b, x, y: korn(UN, x, y, 0.5)
+             if abs(a - 0.5) * fw < 0.7 + 0.3 * b else None)
+        fyll(f["top"], lambda a, b, x, y: korn(ton(UN, 1.05), x, y, 0.5)
+             if abs(a - 0.5) * f["top"][2] < 0.9 else None)
 
 
-def m_flackar(rect, sidor, farg):
-    """Fläckar över hela grisen. Deterministiskt brus, så samma gris får samma
-    fläckar varje körning; annars vore varje ombyggnad en ny bild att granska."""
-    n = 0
+def m_flackar(rect, sidor, farg, fyll):
+    """Runda fläckar över hela grisen. Deterministiska, så samma gris får
+    samma fläckar varje körning."""
+    SK = tuple(farg["skugga"])
     for roll in ("body", "head", "ben", "svans"):
         for f, size in sidor.get(roll, []):
             for namn, (fx, fy, fw, fh) in f.items():
-                for _ in range(int(fw * fh / 14)):
+                flackar = []
+                n = int(fx * 31 + fy * 17) & 0x7FFFFFFF
+                for _ in range(max(1, int(fw * fh / 16))):
                     n = (n * 1103515245 + 12345) & 0x7FFFFFFF
-                    x = fx + (n >> 7) % max(1, int(fw))
-                    y = fy + (n >> 17) % max(1, int(fh))
-                    rect(x, y, 2 + ((n >> 3) & 1), 2 + ((n >> 4) & 1),
-                         sh(farg["skugga"], SIDSKUGGA[namn]))
+                    flackar.append(((n >> 7) % 1000 / 1000 * fw, (n >> 17) % 1000 / 1000 * fh,
+                                    0.9 + ((n >> 3) & 3) * 0.35, 0.7 + ((n >> 5) & 3) * 0.2))
+                k = SIDSKUGGA[namn]
+
+                def fn(a, b, x, y, flackar=flackar, fw=fw, fh=fh, k=k):
+                    X, Y = a * fw, b * fh
+                    for px_, py_, r, e in flackar:
+                        if math.hypot((X - px_) / r, (Y - py_) / (r * e)) < 1.0 + 0.08 * math.sin(X * 5 + Y * 3):
+                            return korn(ton(SK, k), x, y, 0.5)
+                    return None
+                fyll((fx, fy, fw, fh), fn)
 
 
-def m_ullkrus(rect, sidor, farg):
-    """Krusig ull: korta ljusa streck i ett fast mönster över ullkuberna. En
-    slät ullkub i en enda färg ser ut som en kudde, inte som ull."""
-    n = 7
-    for f, size in sidor.get("ull", []):
-        for namn, (fx, fy, fw, fh) in f.items():
-            for _ in range(int(fw * fh / 6)):
-                n = (n * 1103515245 + 12345) & 0x7FFFFFFF
-                x = fx + (n >> 7) % max(1, int(fw))
-                y = fy + (n >> 17) % max(1, int(fh))
-                rect(x, y, 2, 1, sh(farg["under"], SIDSKUGGA[namn] * 1.18))
+def m_ullkrus(rect, sidor, farg, fyll):
+    """Ullen krusar sig redan i grundmålningen (_ull); mönstret finns kvar som
+    namn i RASER och gör inget mer."""
+    return
 
 
 MONSTER = {"sockor": m_sockor, "band": m_band, "blas": m_blas,
