@@ -1,5 +1,33 @@
 # Release notes
 
+## 1.3.1
+
+**The pigs have faces now.** Three faults were live at the same time and none of
+the checks said a word, because every file was valid in every other respect. It
+took a player writing in to find the first one.
+
+* **Blossom had no eyes.** The largest head in the pack — nine texels wide —
+  carried the same 1x1 eye as the Kunekune's seven, proportionally the smallest
+  of all five, and it sat down beside the snout where it disappeared into the
+  shadow. Eyes scale with the head now and sit in the upper third.
+* **Ember and Nilla had no nostrils at all.** The snout's face starts on half a
+  texel, and the rounding put the dots on the *neighbouring* face instead. A
+  snout without nostrils is still a pink snout, so nobody had noticed across
+  three releases.
+* **Soot's nostrils were nearly black on a nearly black snout.** The same kind
+  of invisibility as Blossom's eyes, from the other direction. Nostril colour
+  follows the snout now, so it reads on a pink Large White and a black Berkshire
+  alike.
+
+Every eye has a highlight in the upper corner. It is the single detail that
+separates an animal from a cute animal, and the children had asked for cuter
+pigs.
+
+**The snout ends in a disc.** The Tamworth's snout is four and a half units long
+and was a plain box — from the side the pig read as an anteater, not a pig. A
+pig is recognised by a nose that ends in a flat disc wider than the bridge, and
+all five breeds have one now. On Ember it makes the most difference.
+
 ## 1.2.0
 
 **Pigs wallow now.** A pig that finds mud lies down in it and walks around muddy

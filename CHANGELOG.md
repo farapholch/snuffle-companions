@@ -1,5 +1,15 @@
 # Ändringar
 
+## 1.3.1 — 2026-09-02
+
+Paketikonen gjordes om mot de nya ansiktena efter att 1.3.0 gått till Mod Mate.
+Innehållet skiljde sig därmed från den utskickade 1.3.0, och loggboken stoppade
+en omsändning under samma nummer — helt riktigt: två filer med samma pack-uuid
+och samma version men olika innehåll får Minecraft att vägra ladda den ena.
+
+Det här är alltså 1.3.0 plus en ikon, och den FÖRSTA versionen av ansiktena som
+når CurseForge — där stod paketet kvar på 1.2.0.
+
 ## 1.3.0 — 2026-09-01
 
 **Grisarna har fått ansikten.** Tre fel levde samtidigt utan att någon spärr sa
